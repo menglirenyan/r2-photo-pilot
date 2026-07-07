@@ -6,8 +6,10 @@ const paidUntil = "2027-07-06";
 
 export const sampleCompany: Company = {
   id: "00000000-0000-0000-0000-000000000001",
+  company_number: 1,
   name: "华悟样品厂",
-  slug: "demo-factory",
+  slug: "c001",
+  login_username: "demo",
   status: "active",
   paid_until: paidUntil,
   contact_name: "站点运营",
@@ -105,7 +107,7 @@ export const sampleShipmentSheets: ShipmentSheet[] = [
   }
 ];
 
-export function getSampleCatalog(slug = "demo-factory"): PublicCatalog | null {
+export function getSampleCatalog(slug = "c001"): PublicCatalog | null {
   if (slug !== sampleCompany.slug) return null;
 
   return {

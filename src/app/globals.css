@@ -569,6 +569,17 @@ textarea:focus {
   font-size: 14px;
 }
 
+.admin-count {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 720;
+}
+
 .admin-warning {
   margin-bottom: 12px;
   color: var(--warning);
@@ -675,7 +686,7 @@ textarea:focus {
 
 .company-controls {
   display: grid;
-  grid-template-columns: 110px minmax(130px, 1fr) auto auto;
+  grid-template-columns: repeat(2, minmax(130px, 1fr));
   gap: 8px;
   align-items: end;
 }

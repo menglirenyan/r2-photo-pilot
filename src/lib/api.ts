@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { getAuthSession, type AuthSession } from "@/lib/auth";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
 export async function requireAdmin() {
-  if (!(await isAdminAuthenticated())) {
+  const session = await getAuthSession();
+  if (!session) {
     return {
       response: NextResponse.json({ error: "未登录或登录已过期。" }, { status: 401 }),
-      supabase: null
+      supabase: null,
+      session: null
     };
   }
 
@@ -14,11 +16,48 @@ export async function requireAdmin() {
   if (!supabase) {
     return {
       response: NextResponse.json({ error: "Supabase 未配置，当前只能查看演示数据。" }, { status: 503 }),
-      supabase: null
+      supabase: null,
+      session: null
     };
   }
 
-  return { response: null, supabase };
+  return { response: null, supabase, session };
+}
+
+export async function requirePlatformAdmin() {
+  const result = await requireAdmin();
+  if (result.response || !result.session) return result;
+
+  if (result.session.role !== "admin") {
+    return {
+      response: NextResponse.json({ error: "只有平台管理员可以管理用户。" }, { status: 403 }),
+      supabase: null,
+      session: null
+    };
+  }
+
+  return result;
+}
+
+export async function canAccessCompany(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  session: AuthSession,
+  companyId: string
+) {
+  if (session.role === "admin") return true;
+
+  const { data } = await supabase.from("companies").select("slug").eq("id", companyId).single();
+  return data?.slug === session.companySlug;
+}
+
+export async function requireCompanyAccess(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  session: AuthSession,
+  companyId: string
+) {
+  if (await canAccessCompany(supabase, session, companyId)) return null;
+
+  return NextResponse.json({ error: "不能管理其他企业的数据。" }, { status: 403 });
 }
 
 export function jsonError(message: string, status = 400) {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cleanText, jsonError, requireAdmin } from "@/lib/api";
+import { cleanText, jsonError, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import { parseMoney } from "@/lib/format";
 import type { ProductStatus } from "@/types";
 
@@ -8,7 +8,7 @@ type Params = {
 };
 
 export async function PATCH(request: Request, { params }: Params) {
-  const { response, supabase } = await requireAdmin();
+  const { response, supabase, session } = await requireAdmin();
   if (response) return response;
 
   const { id } = await params;
@@ -29,6 +29,17 @@ export async function PATCH(request: Request, { params }: Params) {
     status: body.status === "hidden" ? "hidden" : body.status === "active" ? "active" : undefined,
     sort_order: body.sort_order === undefined ? undefined : Number(body.sort_order)
   };
+
+  const { data: existingProduct, error: existingError } = await supabase
+    .from("products")
+    .select("id,company_id")
+    .eq("id", id)
+    .single();
+
+  if (existingError || !existingProduct) return jsonError("产品不存在。", 404);
+
+  const accessError = await requireCompanyAccess(supabase, session, existingProduct.company_id);
+  if (accessError) return accessError;
 
   const { data, error } = await supabase.from("products").update(patch).eq("id", id).select("*,categories(id,name,code)").single();
 

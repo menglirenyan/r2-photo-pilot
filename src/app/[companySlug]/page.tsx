@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { LoginForm } from "@/components/LoginForm";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { AdminDashboard } from "@/components/AdminDashboard";
+import { isCompanyOrAdminAuthenticated } from "@/lib/auth";
+import { getCompanyAdminSnapshot } from "@/lib/data";
 
 type PageProps = {
   params: Promise<{ companySlug: string }>;
@@ -18,11 +20,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CompanyAdminEntryPage({ params }: PageProps) {
   const { companySlug } = await params;
-  const target = `/admin?company=${encodeURIComponent(companySlug)}`;
 
-  if (await isAdminAuthenticated()) {
-    redirect(target);
+  if (!(await isCompanyOrAdminAuthenticated(companySlug))) {
+    return (
+      <LoginForm
+        companySlug={companySlug}
+        defaultUsername=""
+        redirectTo={`/${companySlug}`}
+        description={`${companySlug} 企业后台登录。`}
+      />
+    );
   }
 
-  return <LoginForm redirectTo={target} description={`${companySlug} 产品册管理入口。`} />;
+  const snapshot = await getCompanyAdminSnapshot(companySlug);
+  if (!snapshot) notFound();
+
+  return <AdminDashboard {...snapshot} mode="company" initialCompanySlug={companySlug} />;
 }

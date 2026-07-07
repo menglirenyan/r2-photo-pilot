@@ -3,8 +3,10 @@ export type ProductStatus = "active" | "hidden";
 
 export type Company = {
   id: string;
+  company_number: number;
   name: string;
   slug: string;
+  login_username: string;
   status: CompanyStatus;
   paid_until: string | null;
   contact_name: string;

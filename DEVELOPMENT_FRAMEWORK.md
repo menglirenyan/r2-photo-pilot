@@ -8,10 +8,10 @@
 
 当前阶段目标：
 
-- 浏览者通过企业公开链接访问产品册，例如 `/demo-factory/浏览页`。
+- 浏览者通过企业公开链接访问产品册，例如 `/c001/浏览页`。
 - 企业只有在后台被手动开通、且未过期时，公开页才展示产品。
 - 企业用户不自助注册，不在线付款，不下单。
-- 企业通过 `/:companySlug` 登录管理自己的产品册；运营者也可以通过 `/admin` 代管用户、企业产品册、分类、产品、图片、可用时间和出货单。
+- 企业通过 `/:companySlug` 登录管理自己的产品册；运营者通过 `/admin` 只管理企业用户、登录账号、开通状态和可用时间。
 - 第一版采用邀请制与私下付款，后台人工开通，不在网页展示收款码。
 
 明确不做：
@@ -46,21 +46,21 @@
 
 公开路由：
 
-- `/`：重定向到 `/demo-factory/浏览页`，仅作为演示入口。
-- `/[companySlug]`：企业管理入口；未登录时显示登录表单，已登录时进入后台并选中该企业。
+- `/`：重定向到 `/c001/浏览页`，仅作为本地演示入口。
+- `/[companySlug]`：企业管理入口；未登录时显示登录表单，已登录时进入该企业后台。
 - `/[companySlug]/浏览页`：企业公开产品册；由 `proxy.ts` 重写到内部 `/[companySlug]/browse`。
 - `/[companySlug]/浏览页/p/[productCode]`：产品详情页；由 `proxy.ts` 重写到内部 `/[companySlug]/browse/p/[productCode]`。
 
 后台路由：
 
 - `/admin/login`：运营方总后台登录。
-- `/admin`：运营后台工作台；也承接企业入口登录后的管理页面。
+- `/admin`：运营方用户管理后台，只管理企业用户、登录账号、开通状态和可用时间。
 
 API 路由：
 
-- `/api/admin/login`：校验 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`，写入 HTTP-only session cookie。
+- `/api/admin/login`：校验平台管理员或企业账号密码，写入 HTTP-only session cookie。
 - `/api/admin/logout`：清理 session。
-- `/api/admin/companies`：创建/更新/删除用户企业与开通状态、可用到期日。
+- `/api/admin/companies`：仅平台管理员可用，创建/更新/删除用户企业、登录账号、开通状态、可用到期日。
 - `/api/admin/categories`：创建企业分类。
 - `/api/admin/products`：创建产品并按分类自动生成编号。
 - `/api/admin/products/[id]`：更新产品状态或字段。
@@ -70,7 +70,8 @@ API 路由：
 
 新增 API 时应遵守：
 
-- 后台写入接口必须调用 `requireAdmin()`。
+- 平台用户管理接口必须调用 `requirePlatformAdmin()`。
+- 企业分类、产品、出货单和上传接口必须调用 `requireAdmin()` 后再用 `requireCompanyAccess()` 限定企业范围。
 - 公开接口不能返回未开通企业或隐藏产品数据。
 - 不要在客户端直接访问 Supabase 写入。
 
@@ -80,7 +81,7 @@ API 路由：
 
 核心表：
 
-- `companies`：企业租户。关键字段：`slug`、`status`、`paid_until`。
+- `companies`：企业租户。关键字段：`company_number`、`slug`、`login_username`、`password_hash`、`status`、`paid_until`。
 - `categories`：企业内产品分类。关键字段：`company_id`、`name`、`code`、`sort_order`。
 - `products`：产品。关键字段：`category_id`、`product_number`、`product_code`、`image_url`、`unit_price`、`status`。
 - `shipment_sheets`：出货单主表。
@@ -88,6 +89,7 @@ API 路由：
 
 编号规则：
 
+- 企业编号按创建顺序递增，展示和路由格式为 `c001`、`c002`。
 - 产品编号按分类独立递增。
 - 格式为 `分类代码-三位序号`，例如 `HW-001`。
 - 新产品创建时由 `/api/admin/products` 查询该分类当前最大 `product_number` 后生成。
@@ -124,7 +126,7 @@ RLS 策略：
 - `[companySlug]/browse/page.tsx`：公开产品册服务端入口，承接用户访问的 `/[companySlug]/浏览页`。
 - `[companySlug]/browse/p/[productCode]/page.tsx`：产品详情服务端入口，承接用户访问的 `/[companySlug]/浏览页/p/[productCode]`。
 - `proxy.ts`：把用户可读的中文浏览页路径重写到内部 ASCII 路由。
-- `admin/page.tsx`：后台服务端入口，负责鉴权和读取后台快照。
+- `admin/page.tsx`：平台后台服务端入口，负责平台管理员鉴权和读取用户列表。
 - `admin/login/page.tsx`：后台登录页入口。
 - `api/**/route.ts`：服务端 API。
 
@@ -132,8 +134,8 @@ RLS 策略：
 
 - `PublicCatalog.tsx`：公开产品册客户端交互，负责搜索、分类筛选、产品卡渲染。
 - `SafeImage.tsx`：产品图片兜底，图片失败时显示产品名占位。
-- `LoginForm.tsx`：后台登录表单。
-- `AdminDashboard.tsx`：后台工作台，包含企业、分类、产品上传、产品列表、出货单编辑器。
+- `LoginForm.tsx`：平台和企业后台登录表单。
+- `AdminDashboard.tsx`：后台工作台。`mode="admin"` 只渲染用户管理；`mode="company"` 渲染分类、产品上传、产品列表、出货单编辑器。
 
 `src/lib`：
 
@@ -168,9 +170,9 @@ RLS 策略：
 后台登录：
 
 1. 企业访问 `/[companySlug]`，或运营方访问 `/admin/login`，输入账号和密码。
-2. `/api/admin/login` 校验 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`。
-3. 成功后写入 HTTP-only session cookie。
-4. `/admin` 通过 `isAdminAuthenticated()` 判断是否允许进入；企业入口会附带 `company` 参数自动选中该企业。
+2. `/api/admin/login` 对平台管理员校验 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`；对企业登录校验 `companies.login_username` 和 `companies.password_hash`。
+3. 成功后写入带角色的 HTTP-only session cookie。
+4. `/admin` 只允许平台管理员进入用户管理；`/[companySlug]` 允许平台管理员或该企业 session 进入企业后台。
 
 图片上传：
 
@@ -203,6 +205,8 @@ RLS 策略：
 
 - 以运营效率为主，不做营销式页面。
 - PC 桌面优先，移动端可用但不是主要操作场景。
+- `/admin` 只展示用户管理，不展示产品、图片、出货单。
+- 企业后台 `/:companySlug` 展示产品、图片、分类和出货单，不展示平台用户管理。
 - 后台保留表格/列表密度，不改成大图卡片墙。
 - 产品行和关键按钮保留稳定测试属性，例如 `data-product-code`、`data-testid`。
 - 出货单编辑器和打印预览必须同步。
@@ -272,9 +276,9 @@ RLS 策略：
 完成修改后：
 
 1. 运行 `npm run build`。
-2. 验证 `/demo-factory/浏览页`。
-3. 验证 `/demo-factory/浏览页/p/TC-001` 或任意产品详情。
-4. 验证 `/demo-factory`、`/admin/login` 和 `/admin`。
+2. 验证 `/c001/浏览页`。
+3. 验证 `/c001/浏览页/p/TC-001` 或任意产品详情。
+4. 验证 `/c001`、`/admin/login` 和 `/admin`。
 5. 对后台出货单至少点击一次“加入出货单”，确认合计变化。
 6. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
 
@@ -314,11 +318,12 @@ RLS 策略：
 最近验证通过的基线：
 
 - `npm run build` 通过。
-- 手机 390x844 视口下，`/demo-factory/浏览页` 默认首屏可见 6 个产品。
+- 手机 390x844 视口下，`/c001/浏览页` 默认首屏可见 6 个产品。
 - 搜索“陶瓷”返回 2 个产品。
-- `/demo-factory/浏览页/p/TC-001` 产品详情正常展示。
-- `/admin/login` 使用本地默认密码 `admin123` 可进入演示后台。
-- 后台点击 `HW-001` 的“加入出货单”后生成 1 行，合计 `¥3.80`。
+- `/c001/浏览页/p/TC-001` 产品详情正常展示。
+- `/admin/login` 使用本地默认密码 `admin123` 可进入平台用户管理，不显示产品和出货单。
+- `/c001` 在本地无 Supabase 演示环境下使用 `demo/demo123` 可进入企业后台。
+- 企业后台点击 `HW-001` 的“加入出货单”后生成 1 行，合计 `¥3.80`。
 - 未发现旧 `photo_uploads` 业务引用。
 
 该基线是后续改动的最低回归要求。

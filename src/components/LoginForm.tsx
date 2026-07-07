@@ -7,11 +7,18 @@ import { FormEvent, useState, useTransition } from "react";
 type LoginFormProps = {
   redirectTo?: string;
   description?: string;
+  companySlug?: string;
+  defaultUsername?: string;
 };
 
-export function LoginForm({ redirectTo = "/admin", description = "用于用户、产品、出货单和可用时间代管。" }: LoginFormProps) {
+export function LoginForm({
+  redirectTo = "/admin",
+  description = "用于平台用户管理。",
+  companySlug,
+  defaultUsername = "admin"
+}: LoginFormProps) {
   const router = useRouter();
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState(defaultUsername);
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -23,7 +30,7 @@ export function LoginForm({ redirectTo = "/admin", description = "用于用户�
     const response = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, companySlug })
     });
 
     if (!response.ok) {
@@ -44,7 +51,7 @@ export function LoginForm({ redirectTo = "/admin", description = "用于用户�
         <h1>后台登录</h1>
         <p>{description}</p>
         <label>
-          管理账号
+          账号
           <input
             autoComplete="username"
             autoFocus
@@ -53,7 +60,7 @@ export function LoginForm({ redirectTo = "/admin", description = "用于用户�
           />
         </label>
         <label>
-          管理密码
+          密码
           <input
             autoComplete="current-password"
             onChange={(event) => setPassword(event.target.value)}

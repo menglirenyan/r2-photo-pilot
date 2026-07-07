@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function Home() {
-  redirect(encodeURI("/demo-factory/浏览页"));
+  redirect(encodeURI("/c001/浏览页"));
 }

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { cleanText, jsonError, requireAdmin } from "@/lib/api";
+import { cleanText, jsonError, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import type { ShipmentDraftItem } from "@/types";
 
 export async function POST(request: Request) {
-  const { response, supabase } = await requireAdmin();
+  const { response, supabase, session } = await requireAdmin();
   if (response) return response;
 
   const body = (await request.json()) as {
@@ -20,6 +20,9 @@ export async function POST(request: Request) {
   if (!companyId || items.length === 0) {
     return jsonError("企业和出货明细不能为空。");
   }
+
+  const accessError = await requireCompanyAccess(supabase, session, companyId);
+  if (accessError) return accessError;
 
   const normalized = items
     .map((item, index) => {

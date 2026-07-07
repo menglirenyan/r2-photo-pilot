@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { cleanText, jsonError, requireAdmin } from "@/lib/api";
+import { cleanText, jsonError, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import { parseMoney } from "@/lib/format";
 
 export async function POST(request: Request) {
-  const { response, supabase } = await requireAdmin();
+  const { response, supabase, session } = await requireAdmin();
   if (response) return response;
 
   const body = (await request.json()) as {
@@ -29,6 +29,9 @@ export async function POST(request: Request) {
   if (!companyId || !categoryId || !name || !imageUrl || !objectKey) {
     return jsonError("企业、类别、名称和图片必填。");
   }
+
+  const accessError = await requireCompanyAccess(supabase, session, companyId);
+  if (accessError) return accessError;
 
   const { data: category, error: categoryError } = await supabase
     .from("categories")

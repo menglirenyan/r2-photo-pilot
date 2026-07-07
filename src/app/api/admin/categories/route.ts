@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { cleanText, jsonError, requireAdmin } from "@/lib/api";
+import { cleanText, jsonError, requireAdmin, requireCompanyAccess } from "@/lib/api";
 
 export async function POST(request: Request) {
-  const { response, supabase } = await requireAdmin();
+  const { response, supabase, session } = await requireAdmin();
   if (response) return response;
 
   const body = (await request.json()) as {
@@ -19,6 +19,9 @@ export async function POST(request: Request) {
   if (!companyId || !name || !code) {
     return jsonError("企业、类别名称和类别代码必填。");
   }
+
+  const accessError = await requireCompanyAccess(supabase, session, companyId);
+  if (accessError) return accessError;
 
   const sortOrder = Number(body.sort_order || 0);
   const { data, error } = await supabase

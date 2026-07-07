@@ -6,6 +6,8 @@ import { isCompanyAccessible } from "@/lib/format";
 import { isDemoReadFallbackEnabled } from "@/lib/runtime-config";
 
 const queryTimeoutMs = 3500;
+const companySafeSelect =
+  "id,company_number,name,slug,login_username,status,paid_until,contact_name,contact_note,created_at,updated_at";
 const timeoutError = {
   message: "Supabase query timed out",
   details: "",
@@ -46,7 +48,7 @@ export const getPublicCatalog = cache(async (slug: string): Promise<PublicCatalo
   const { data: company, error: companyError } = await withTimeout(
     supabase
       .from("companies")
-      .select("id,name,slug,status,paid_until,contact_name,contact_note,created_at,updated_at")
+      .select(companySafeSelect)
       .eq("slug", slug)
       .single(),
     timeoutResponse()
@@ -110,27 +112,74 @@ export const getAdminSnapshot = cache(async (): Promise<AdminSnapshot> => {
     return isDemoReadFallbackEnabled() ? getSampleAdminSnapshot() : emptySnapshot;
   }
 
-  const [companiesResult, categoriesResult, productsResult, shipmentResult] = await Promise.all([
-    withTimeout(supabase.from("companies").select("*").order("created_at", { ascending: false }), timeoutResponse()),
-    withTimeout(supabase.from("categories").select("*").order("sort_order", { ascending: true }).order("name", { ascending: true }), timeoutResponse()),
-    withTimeout(
-      supabase
-        .from("products")
-        .select("*,categories(id,name,code)")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false })
-        .limit(200),
-      timeoutResponse()
-    ),
-    withTimeout(supabase.from("shipment_sheets").select("*").order("created_at", { ascending: false }).limit(30), timeoutResponse())
-  ]);
+  const companiesResult = await withTimeout(
+    supabase.from("companies").select(companySafeSelect).order("company_number", { ascending: true }),
+    timeoutResponse()
+  );
 
-  if (companiesResult.error || categoriesResult.error || productsResult.error || shipmentResult.error) {
+  if (companiesResult.error) {
     return isDemoReadFallbackEnabled() ? getSampleAdminSnapshot() : emptySnapshot;
   }
 
   return {
     companies: (companiesResult.data ?? []) as Company[],
+    categories: [],
+    products: [],
+    shipmentSheets: [],
+    configured: true
+  };
+});
+
+export const getCompanyAdminSnapshot = cache(async (slug: string): Promise<AdminSnapshot | null> => {
+  const supabase = getSupabaseServerClient();
+  const allowDemoFallback = isDemoReadFallbackEnabled();
+
+  if (!supabase) {
+    return allowDemoFallback && slug === sampleCompany.slug ? getSampleAdminSnapshot() : null;
+  }
+
+  const companyResult = await withTimeout(
+    supabase.from("companies").select(companySafeSelect).eq("slug", slug).single(),
+    timeoutResponse()
+  );
+
+  if (companyResult.error || !companyResult.data) {
+    return allowDemoFallback && slug === sampleCompany.slug ? getSampleAdminSnapshot() : null;
+  }
+
+  const company = companyResult.data as Company;
+  const [categoriesResult, productsResult, shipmentResult] = await Promise.all([
+    withTimeout(
+      supabase
+        .from("categories")
+        .select("*")
+        .eq("company_id", company.id)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true }),
+      timeoutResponse()
+    ),
+    withTimeout(
+      supabase
+        .from("products")
+        .select("*,categories(id,name,code)")
+        .eq("company_id", company.id)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false })
+        .limit(200),
+      timeoutResponse()
+    ),
+    withTimeout(
+      supabase.from("shipment_sheets").select("*").eq("company_id", company.id).order("created_at", { ascending: false }).limit(30),
+      timeoutResponse()
+    )
+  ]);
+
+  if (categoriesResult.error || productsResult.error || shipmentResult.error) {
+    return allowDemoFallback && slug === sampleCompany.slug ? getSampleAdminSnapshot() : null;
+  }
+
+  return {
+    companies: [company],
     categories: (categoriesResult.data ?? []) as Category[],
     products: (productsResult.data ?? []) as unknown as Product[],
     shipmentSheets: (shipmentResult.data ?? []) as ShipmentSheet[],

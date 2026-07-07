@@ -1,7 +1,7 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { cleanText, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import { createR2Client, getMaxUploadBytes, getR2Config } from "@/lib/r2";
 
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -17,9 +17,8 @@ function sanitizeFileName(fileName: string) {
 }
 
 export async function POST(request: Request) {
-  if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "未登录后台，不能上传图片。" }, { status: 401 });
-  }
+  const { response, supabase, session } = await requireAdmin();
+  if (response) return response;
 
   const config = getR2Config();
   const maxUploadBytes = getMaxUploadBytes();
@@ -44,7 +43,14 @@ export async function POST(request: Request) {
   const fileName = body.fileName ? sanitizeFileName(body.fileName) : "photo.jpg";
   const contentType = body.contentType || "application/octet-stream";
   const size = Number(body.size || 0);
-  const companyId = (body.companyId || "unknown").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 80);
+  const companyId = cleanText(body.companyId, 80);
+
+  if (!companyId) {
+    return NextResponse.json({ error: "缺少企业 ID。" }, { status: 400 });
+  }
+
+  const accessError = await requireCompanyAccess(supabase, session, companyId);
+  if (accessError) return accessError;
 
   if (!allowedTypes.has(contentType)) {
     return NextResponse.json({ error: "仅支持 jpg、png、webp 图片。" }, { status: 400 });

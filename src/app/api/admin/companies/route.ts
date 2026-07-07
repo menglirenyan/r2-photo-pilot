@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
-import { cleanText, jsonError, requireAdmin } from "@/lib/api";
-import { toSlug } from "@/lib/format";
+import { cleanText, jsonError, requirePlatformAdmin } from "@/lib/api";
+import { hashPassword } from "@/lib/auth";
 import type { CompanyStatus } from "@/types";
 
+const companySafeSelect =
+  "id,company_number,name,slug,login_username,status,paid_until,contact_name,contact_note,created_at,updated_at";
+
 export async function POST(request: Request) {
-  const { response, supabase } = await requireAdmin();
+  const { response, supabase } = await requirePlatformAdmin();
   if (response) return response;
 
   const body = (await request.json()) as {
     name?: string;
-    slug?: string;
+    login_username?: string;
+    login_password?: string;
     status?: CompanyStatus;
     paid_until?: string | null;
     contact_name?: string;
@@ -17,23 +21,25 @@ export async function POST(request: Request) {
   };
 
   const name = cleanText(body.name, 120);
-  const slug = toSlug(body.slug || body.name || "");
+  const loginUsername = cleanText(body.login_username, 80);
+  const loginPassword = String(body.login_password ?? "");
 
-  if (!name || !slug) {
-    return jsonError("企业名称和链接标识必填。");
+  if (!name || !loginUsername || loginPassword.length < 6) {
+    return jsonError("用户名称、登录账号和至少 6 位登录密码必填。");
   }
 
   const { data, error } = await supabase
     .from("companies")
     .insert({
       name,
-      slug,
+      login_username: loginUsername,
+      password_hash: hashPassword(loginPassword),
       status: body.status === "active" ? "active" : "inactive",
       paid_until: body.paid_until || null,
       contact_name: cleanText(body.contact_name, 80),
       contact_note: cleanText(body.contact_note, 500)
     })
-    .select("*")
+    .select(companySafeSelect)
     .single();
 
   if (error) return jsonError(error.message, 500);
@@ -41,13 +47,14 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const { response, supabase } = await requireAdmin();
+  const { response, supabase } = await requirePlatformAdmin();
   if (response) return response;
 
   const body = (await request.json()) as {
     id?: string;
     name?: string;
-    slug?: string;
+    login_username?: string;
+    login_password?: string;
     status?: CompanyStatus;
     paid_until?: string | null;
     contact_name?: string;
@@ -56,23 +63,26 @@ export async function PATCH(request: Request) {
 
   if (!body.id) return jsonError("缺少企业 ID。");
 
-  const patch = {
-    name: body.name ? cleanText(body.name, 120) : undefined,
-    slug: body.slug ? toSlug(body.slug) : undefined,
-    status: body.status === "active" ? "active" : "inactive",
-    paid_until: body.paid_until || null,
-    contact_name: cleanText(body.contact_name, 80),
-    contact_note: cleanText(body.contact_note, 500)
-  };
+  const patch: Record<string, unknown> = {};
+  if (body.name !== undefined) patch.name = cleanText(body.name, 120);
+  if (body.login_username !== undefined) patch.login_username = cleanText(body.login_username, 80);
+  if (body.login_password) {
+    if (body.login_password.length < 6) return jsonError("新密码至少 6 位。");
+    patch.password_hash = hashPassword(body.login_password);
+  }
+  if (body.status !== undefined) patch.status = body.status === "active" ? "active" : "inactive";
+  if (body.paid_until !== undefined) patch.paid_until = body.paid_until || null;
+  if (body.contact_name !== undefined) patch.contact_name = cleanText(body.contact_name, 80);
+  if (body.contact_note !== undefined) patch.contact_note = cleanText(body.contact_note, 500);
 
-  const { data, error } = await supabase.from("companies").update(patch).eq("id", body.id).select("*").single();
+  const { data, error } = await supabase.from("companies").update(patch).eq("id", body.id).select(companySafeSelect).single();
 
   if (error) return jsonError(error.message, 500);
   return NextResponse.json({ company: data });
 }
 
 export async function DELETE(request: Request) {
-  const { response, supabase } = await requireAdmin();
+  const { response, supabase } = await requirePlatformAdmin();
   if (response) return response;
 
   const body = (await request.json()) as { id?: string };

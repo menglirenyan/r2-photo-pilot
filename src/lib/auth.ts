@@ -1,9 +1,21 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, pbkdf2Sync, randomBytes, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { isProductionRuntime } from "@/lib/runtime-config";
 
 const cookieName = "huowu_admin_session";
 const maxAgeSeconds = 60 * 60 * 12;
+const passwordIterations = 210000;
+
+export type AuthSession =
+  | {
+      role: "admin";
+      issuedAt: number;
+    }
+  | {
+      role: "company";
+      companySlug: string;
+      issuedAt: number;
+    };
 
 function getSessionSecret() {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
@@ -26,15 +38,18 @@ function safeEqual(left: string, right: string) {
   return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
 }
 
-export async function createAdminSession() {
+function createToken(scope: "admin" | "company", target: string) {
   const issuedAt = Date.now();
-  const payload = `admin.${issuedAt}`;
+  const payload = `${scope}.${target}.${issuedAt}`;
   const signature = sign(payload);
   if (!signature) {
     throw new Error("SESSION_SECRET is required in production.");
   }
 
-  const token = `${payload}.${signature}`;
+  return `${payload}.${signature}`;
+}
+
+async function setSessionCookie(token: string) {
   const cookieStore = await cookies();
 
   cookieStore.set(cookieName, token, {
@@ -46,28 +61,61 @@ export async function createAdminSession() {
   });
 }
 
+export async function createAdminSession() {
+  await setSessionCookie(createToken("admin", "platform"));
+}
+
+export async function createCompanySession(companySlug: string) {
+  await setSessionCookie(createToken("company", companySlug));
+}
+
 export async function clearAdminSession() {
   const cookieStore = await cookies();
   cookieStore.delete(cookieName);
 }
 
-export async function isAdminAuthenticated() {
+export async function getAuthSession(): Promise<AuthSession | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(cookieName)?.value;
 
-  if (!token) return false;
+  if (!token) return null;
 
-  const [scope, issuedAt, signature] = token.split(".");
-  if (scope !== "admin" || !issuedAt || !signature) return false;
+  const parts = token.split(".");
+  const [scope, target, issuedAt, signature] =
+    parts.length === 4 ? parts : parts.length === 3 ? [parts[0], "platform", parts[1], parts[2]] : [];
+
+  if ((scope !== "admin" && scope !== "company") || !target || !issuedAt || !signature) return null;
 
   const issuedAtNumber = Number(issuedAt);
-  if (!Number.isFinite(issuedAtNumber)) return false;
-  if (Date.now() - issuedAtNumber > maxAgeSeconds * 1000) return false;
+  if (!Number.isFinite(issuedAtNumber)) return null;
+  if (Date.now() - issuedAtNumber > maxAgeSeconds * 1000) return null;
 
-  const expectedSignature = sign(`${scope}.${issuedAt}`);
-  if (!expectedSignature) return false;
+  const expectedSignature = sign(`${scope}.${target}.${issuedAt}`);
+  const legacyExpectedSignature = scope === "admin" ? sign(`${scope}.${issuedAt}`) : null;
+  if (!expectedSignature) return null;
 
-  return safeEqual(expectedSignature, signature);
+  const valid =
+    safeEqual(expectedSignature, signature) ||
+    Boolean(legacyExpectedSignature && safeEqual(legacyExpectedSignature, signature));
+
+  if (!valid) return null;
+  if (scope === "admin") return { role: "admin", issuedAt: issuedAtNumber };
+
+  return { role: "company", companySlug: target, issuedAt: issuedAtNumber };
+}
+
+export async function isAdminAuthenticated() {
+  return (await getAuthSession())?.role === "admin";
+}
+
+export async function isCompanyAuthenticated(companySlug: string) {
+  const session = await getAuthSession();
+  return session?.role === "company" && session.companySlug === companySlug;
+}
+
+export async function isCompanyOrAdminAuthenticated(companySlug: string) {
+  const session = await getAuthSession();
+  return session?.role === "admin" || (session?.role === "company" && session.companySlug === companySlug);
 }
 
 function getAdminUsername() {
@@ -91,4 +139,22 @@ export function isAdminCredentialsValid(username: string, password: string) {
   if (!expectedUsername || !expectedPassword) return false;
 
   return safeEqual(username, expectedUsername) && safeEqual(password, expectedPassword);
+}
+
+export function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = pbkdf2Sync(password, salt, passwordIterations, 32, "sha256").toString("hex");
+  return `pbkdf2$${passwordIterations}$${salt}$${hash}`;
+}
+
+export function isPasswordHashValid(password: string, storedHash: string) {
+  const [scheme, iterations, salt, expectedHash] = storedHash.split("$");
+  const parsedIterations = Number(iterations);
+
+  if (scheme !== "pbkdf2" || !Number.isFinite(parsedIterations) || !salt || !expectedHash) {
+    return false;
+  }
+
+  const hash = pbkdf2Sync(password, salt, parsedIterations, 32, "sha256").toString("hex");
+  return safeEqual(hash, expectedHash);
 }

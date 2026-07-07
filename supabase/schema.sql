@@ -14,8 +14,11 @@ end $$;
 
 create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
+  company_number integer not null,
   name text not null check (char_length(name) between 1 and 120),
   slug text not null unique check (slug ~ '^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$'),
+  login_username text not null default '' check (char_length(login_username) <= 80),
+  password_hash text not null default '' check (char_length(password_hash) <= 256),
   status public.company_status not null default 'inactive',
   paid_until date,
   contact_name text not null default '' check (char_length(contact_name) <= 80),
@@ -23,6 +26,21 @@ create table if not exists public.companies (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.companies
+  add column if not exists company_number integer;
+
+alter table public.companies
+  add column if not exists login_username text not null default '';
+
+alter table public.companies
+  add column if not exists password_hash text not null default '';
+
+create sequence if not exists public.company_number_seq
+  as integer
+  start with 1
+  increment by 1
+  minvalue 1;
 
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
@@ -82,6 +100,14 @@ create table if not exists public.shipment_sheet_items (
 create index if not exists companies_slug_idx
   on public.companies (slug);
 
+create unique index if not exists companies_company_number_key
+  on public.companies (company_number)
+  where company_number is not null;
+
+create unique index if not exists companies_login_username_key
+  on public.companies (lower(login_username))
+  where login_username <> '';
+
 create index if not exists companies_status_paid_until_idx
   on public.companies (status, paid_until);
 
@@ -106,6 +132,28 @@ begin
   return new;
 end;
 $$;
+
+create or replace function public.assign_company_number()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.company_number is null then
+    new.company_number = nextval('public.company_number_seq');
+  end if;
+
+  if new.slug is null or new.slug = '' then
+    new.slug = 'c' || lpad(new.company_number::text, 3, '0');
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists companies_assign_company_number on public.companies;
+create trigger companies_assign_company_number
+  before insert on public.companies
+  for each row execute function public.assign_company_number();
 
 drop trigger if exists companies_set_updated_at on public.companies;
 create trigger companies_set_updated_at
@@ -158,18 +206,30 @@ create policy "shipment_sheet_items_service_role_all"
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
-insert into public.companies (name, slug, status, paid_until, contact_name, contact_note)
-values ('华悟样品厂', 'demo-factory', 'active', current_date + interval '365 days', '站点运营', '演示企业，可替换为真实企业。')
-on conflict (slug) do nothing;
+update public.companies
+set company_number = 1,
+    slug = 'c001',
+    login_username = case when login_username = '' then 'demo' else login_username end
+where slug = 'demo-factory'
+  and not exists (select 1 from public.companies where slug = 'c001');
 
-insert into public.categories (company_id, name, code, sort_order)
-select c.id, v.name, v.code, v.sort_order
-from public.companies c
-cross join (
-  values
-    ('五金配件', 'HW', 10),
-    ('包装材料', 'BZ', 20),
-    ('陶瓷样品', 'TC', 30)
-) as v(name, code, sort_order)
-where c.slug = 'demo-factory'
-on conflict (company_id, code) do nothing;
+with numbered as (
+  select
+    id,
+    row_number() over (order by created_at, id) + coalesce((select max(company_number) from public.companies), 0) as next_number
+  from public.companies
+  where company_number is null
+)
+update public.companies as companies
+set company_number = numbered.next_number
+from numbered
+where companies.id = numbered.id;
+
+alter table public.companies
+  alter column company_number set not null;
+
+select setval(
+  'public.company_number_seq',
+  greatest(coalesce((select max(company_number) from public.companies), 0), 1),
+  coalesce((select max(company_number) from public.companies), 0) > 0
+);

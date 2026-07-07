@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState, useTransition } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import {
   Building2,
   CalendarDays,
@@ -22,6 +22,7 @@ import type { AdminSnapshot, Category, Company, Product, ShipmentDraftItem, Ship
 
 type AdminDashboardProps = AdminSnapshot & {
   initialCompanySlug?: string;
+  mode?: "admin" | "company";
 };
 
 type ProductForm = {
@@ -34,7 +35,8 @@ type ProductForm = {
 
 type CompanyForm = {
   name: string;
-  slug: string;
+  login_username: string;
+  login_password: string;
   status: "active" | "inactive";
   paid_until: string;
   contact_name: string;
@@ -51,7 +53,8 @@ const initialProductForm: ProductForm = {
 
 const initialCompanyForm: CompanyForm = {
   name: "",
-  slug: "",
+  login_username: "",
+  login_password: "",
   status: "inactive",
   paid_until: "",
   contact_name: "",
@@ -95,8 +98,22 @@ async function compressImage(file: File) {
   return { file: compressed, width, height };
 }
 
-export function AdminDashboard({ companies, categories, products, shipmentSheets, configured, initialCompanySlug }: AdminDashboardProps) {
+type CompanyUpdatePatch = Partial<Company> & {
+  login_password?: string;
+};
+
+export function AdminDashboard({
+  companies,
+  categories,
+  products,
+  shipmentSheets,
+  configured,
+  initialCompanySlug,
+  mode = "admin"
+}: AdminDashboardProps) {
   const router = useRouter();
+  const isPlatformAdmin = mode === "admin";
+  const isCompanyMode = mode === "company";
   const initialCompany =
     companies.find((company) => company.slug === initialCompanySlug) ?? companies[0] ?? null;
   const [companyList, setCompanyList] = useState(companies);
@@ -104,9 +121,9 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
   const [productList, setProductList] = useState(products);
   const [shipments, setShipments] = useState(shipmentSheets);
   const [message, setMessage] = useState("");
-  const [isPending, startTransition] = useTransition();
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompany?.id || "");
   const [companyForm, setCompanyForm] = useState<CompanyForm>(initialCompanyForm);
+  const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
   const [categoryForm, setCategoryForm] = useState({ name: "", code: "" });
   const [productForm, setProductForm] = useState<ProductForm>(initialProductForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -129,11 +146,12 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
 
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/admin/login");
+    router.push(isCompanyMode && selectedCompany ? `/${selectedCompany.slug}` : "/admin/login");
   }
 
   async function createCompany(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isPlatformAdmin) return;
     setMessage("");
 
     const response = await fetch("/api/admin/companies", {
@@ -151,14 +169,15 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
     setCompanyList((current) => [payload.company, ...current]);
     setSelectedCompanyId(payload.company.id);
     setCompanyForm(initialCompanyForm);
-    setMessage("用户已添加。");
+    setMessage(`用户已添加，企业编号 ${payload.company.slug}。`);
   }
 
   function updateCompanyLocal(companyId: string, patch: Partial<Company>) {
     setCompanyList((current) => current.map((item) => (item.id === companyId ? { ...item, ...patch } : item)));
   }
 
-  async function updateCompany(company: Company, patch: Partial<Company> = {}) {
+  async function updateCompany(company: Company, patch: CompanyUpdatePatch = {}) {
+    if (!isPlatformAdmin) return;
     setMessage("");
     const nextCompany = { ...company, ...patch };
     const response = await fetch("/api/admin/companies", {
@@ -174,10 +193,16 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
 
     const payload = (await response.json()) as { company: Company };
     setCompanyList((current) => current.map((item) => (item.id === payload.company.id ? payload.company : item)));
-    setMessage("用户可用时间已更新。");
+    setPasswordDrafts((current) => {
+      const next = { ...current };
+      delete next[payload.company.id];
+      return next;
+    });
+    setMessage("用户资料已更新。");
   }
 
   async function deleteCompany(company: Company) {
+    if (!isPlatformAdmin) return;
     const confirmed = window.confirm(`确认删除“${company.name}”？该用户下的分类、产品和出货单也会被删除。`);
     if (!confirmed) return;
 
@@ -347,13 +372,18 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
           <span>货</span>
           <div>
             <strong>货物产品册</strong>
-            <small>运营后台</small>
+            <small>{isPlatformAdmin ? "用户管理" : "企业后台"}</small>
           </div>
         </div>
         <nav>
-          <a href="#companies">用户</a>
-          <a href="#products">产品</a>
-          <a href="#shipments">出货单</a>
+          {isPlatformAdmin ? (
+            <a href="#companies">用户</a>
+          ) : (
+            <>
+              <a href="#products">产品</a>
+              <a href="#shipments">出货单</a>
+            </>
+          )}
         </nav>
         <button className="sidebar-button" onClick={logout} type="button">
           <LogOut size={16} />
@@ -364,29 +394,27 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
       <section className="admin-main">
         <header className="admin-top">
           <div>
-            <h1>用户产品册代管</h1>
-            <p>账号密码登录后，手动添加用户、设置可用时间和开通状态。</p>
+            <h1>{isPlatformAdmin ? "用户管理" : "企业产品册管理"}</h1>
+            <p>
+              {isPlatformAdmin
+                ? "添加企业用户，设置登录账号、初始密码、开通状态和可用时间。企业编号按顺序自动生成。"
+                : `${selectedCompany?.name || "企业"} 的分类、产品图片和出货单管理。`}
+            </p>
           </div>
-          <select
-            disabled={companyList.length === 0}
-            value={selectedCompanyId}
-            onChange={(event) => {
-              setSelectedCompanyId(event.target.value);
-              setProductForm((current) => ({ ...current, category_id: "" }));
-            }}
-          >
-            {companyList.map((company) => (
-              <option key={company.id} value={company.id}>
-                {company.name}
-              </option>
-            ))}
-          </select>
+          {isCompanyMode && selectedCompany ? (
+            <a className="ghost-action" href={`/${selectedCompany.slug}/浏览页`}>
+              查看浏览页
+            </a>
+          ) : (
+            <span className="admin-count">共 {companyList.length} 个用户</span>
+          )}
         </header>
 
         {!configured ? <div className="admin-warning">当前未配置 Supabase，页面展示演示数据；写入操作会被后端拒绝。</div> : null}
         {message ? <div className="admin-message">{message}</div> : null}
 
-        <section className="admin-grid" id="companies">
+        {isPlatformAdmin ? (
+          <section className="admin-grid" id="companies">
           <form className="admin-panel" onSubmit={createCompany}>
             <div className="panel-title">
               <Building2 size={18} />
@@ -398,11 +426,22 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
                 <input value={companyForm.name} onChange={(event) => setCompanyForm({ ...companyForm, name: event.target.value })} />
               </label>
               <label>
-                链接标识
+                登录账号
                 <input
-                  placeholder="demo-factory"
-                  value={companyForm.slug}
-                  onChange={(event) => setCompanyForm({ ...companyForm, slug: event.target.value })}
+                  autoComplete="username"
+                  placeholder="例如 factory001"
+                  value={companyForm.login_username}
+                  onChange={(event) => setCompanyForm({ ...companyForm, login_username: event.target.value })}
+                />
+              </label>
+              <label>
+                初始密码
+                <input
+                  autoComplete="new-password"
+                  minLength={6}
+                  type="password"
+                  value={companyForm.login_password}
+                  onChange={(event) => setCompanyForm({ ...companyForm, login_password: event.target.value })}
                 />
               </label>
               <label>
@@ -438,7 +477,7 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
                 />
               </label>
             </div>
-            <button className="primary-action" disabled={isPending} type="submit">
+            <button className="primary-action" type="submit">
               <Plus size={16} />
               添加用户
             </button>
@@ -447,17 +486,39 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
           <section className="admin-panel">
             <div className="panel-title">
               <CalendarDays size={18} />
-              <h2>用户可用时间</h2>
+              <h2>用户列表</h2>
             </div>
             <div className="company-list">
               {companyList.map((company) => (
                 <article className="company-row" key={company.id}>
                   <div className="company-summary">
                     <strong>{company.name}</strong>
-                    <span>/{company.slug}/浏览页</span>
+                    <span>编号：{company.slug}</span>
+                    <small>登录账号：{company.login_username || "-"}</small>
+                    <small>浏览页：/{company.slug}/浏览页</small>
                     <small>当前到期：{compactDate(company.paid_until)}</small>
                   </div>
                   <div className="company-controls">
+                    <label>
+                      登录账号
+                      <input
+                        value={company.login_username || ""}
+                        onChange={(event) => updateCompanyLocal(company.id, { login_username: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      新密码
+                      <input
+                        autoComplete="new-password"
+                        minLength={6}
+                        placeholder="留空不改"
+                        type="password"
+                        value={passwordDrafts[company.id] || ""}
+                        onChange={(event) =>
+                          setPasswordDrafts((current) => ({ ...current, [company.id]: event.target.value }))
+                        }
+                      />
+                    </label>
                     <label>
                       状态
                       <select
@@ -478,7 +539,12 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
                     </label>
                     <button
                       className={company.status === "active" ? "status-toggle active" : "status-toggle"}
-                      onClick={() => updateCompany(company)}
+                      onClick={() =>
+                        updateCompany(
+                          company,
+                          passwordDrafts[company.id] ? { login_password: passwordDrafts[company.id] } : {}
+                        )
+                      }
                       type="button"
                     >
                       {company.status === "active" ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
@@ -494,8 +560,11 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
               {companyList.length === 0 ? <div className="empty-admin">暂无用户，请先添加。</div> : null}
             </div>
           </section>
-        </section>
+          </section>
+        ) : null}
 
+        {isCompanyMode ? (
+          <>
         <section className="admin-grid product-admin" id="products">
           <section className="admin-panel">
             <div className="panel-title">
@@ -734,6 +803,8 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
             </div>
           </section>
         </section>
+          </>
+        ) : null}
       </section>
     </main>
   );
