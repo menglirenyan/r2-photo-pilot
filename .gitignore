@@ -1,0 +1,10 @@
+.next
+node_modules
+.env
+.env*.local
+*.tsbuildinfo
+vercel
+r2-smoke-*.jpg
+
+.vercel
+.env*

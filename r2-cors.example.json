@@ -1,0 +1,19 @@
+{
+  "rules": [
+    {
+      "id": "r2-photo-pilot-upload-and-read",
+      "allowed": {
+        "origins": [
+          "http://localhost:3000",
+          "https://r2-photo-pilot.vercel.app",
+          "https://huowu.org",
+          "https://www.huowu.org"
+        ],
+        "methods": ["GET", "HEAD", "PUT"],
+        "headers": ["content-type"]
+      },
+      "exposeHeaders": ["etag"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}
