@@ -20,7 +20,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   return (
     <main className="detail-page">
-      <Link className="back-link" href={`/c/${catalog.company.slug}`}>
+      <Link className="back-link" href={`/${catalog.company.slug}/浏览页`}>
         <ArrowLeft size={17} />
         返回产品册
       </Link>

@@ -20,7 +20,9 @@ import {
 import { compactDate, formatPrice } from "@/lib/format";
 import type { AdminSnapshot, Category, Company, Product, ShipmentDraftItem, ShipmentSheet } from "@/types";
 
-type AdminDashboardProps = AdminSnapshot;
+type AdminDashboardProps = AdminSnapshot & {
+  initialCompanySlug?: string;
+};
 
 type ProductForm = {
   category_id: string;
@@ -93,15 +95,17 @@ async function compressImage(file: File) {
   return { file: compressed, width, height };
 }
 
-export function AdminDashboard({ companies, categories, products, shipmentSheets, configured }: AdminDashboardProps) {
+export function AdminDashboard({ companies, categories, products, shipmentSheets, configured, initialCompanySlug }: AdminDashboardProps) {
   const router = useRouter();
+  const initialCompany =
+    companies.find((company) => company.slug === initialCompanySlug) ?? companies[0] ?? null;
   const [companyList, setCompanyList] = useState(companies);
   const [categoryList, setCategoryList] = useState(categories);
   const [productList, setProductList] = useState(products);
   const [shipments, setShipments] = useState(shipmentSheets);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [selectedCompanyId, setSelectedCompanyId] = useState(companies[0]?.id || "");
+  const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompany?.id || "");
   const [companyForm, setCompanyForm] = useState<CompanyForm>(initialCompanyForm);
   const [categoryForm, setCategoryForm] = useState({ name: "", code: "" });
   const [productForm, setProductForm] = useState<ProductForm>(initialProductForm);
@@ -450,7 +454,7 @@ export function AdminDashboard({ companies, categories, products, shipmentSheets
                 <article className="company-row" key={company.id}>
                   <div className="company-summary">
                     <strong>{company.name}</strong>
-                    <span>/c/{company.slug}</span>
+                    <span>/{company.slug}/浏览页</span>
                     <small>当前到期：{compactDate(company.paid_until)}</small>
                   </div>
                   <div className="company-controls">

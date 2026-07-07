@@ -8,10 +8,10 @@
 
 当前阶段目标：
 
-- 浏览者通过企业公开链接访问产品册，例如 `/c/demo-factory`。
+- 浏览者通过企业公开链接访问产品册，例如 `/demo-factory/浏览页`。
 - 企业只有在后台被手动开通、且未过期时，公开页才展示产品。
 - 企业用户不自助注册，不在线付款，不下单。
-- 运营者通过 `/admin` 代管用户、企业产品册、分类、产品、图片、可用时间和出货单。
+- 企业通过 `/:companySlug` 登录管理自己的产品册；运营者也可以通过 `/admin` 代管用户、企业产品册、分类、产品、图片、可用时间和出货单。
 - 第一版采用邀请制与私下付款，后台人工开通，不在网页展示收款码。
 
 明确不做：
@@ -46,14 +46,15 @@
 
 公开路由：
 
-- `/`：重定向到 `/c/demo-factory`，仅作为演示入口。
-- `/c/[companySlug]`：企业公开产品册。
-- `/c/[companySlug]/p/[productCode]`：产品详情页。
+- `/`：重定向到 `/demo-factory/浏览页`，仅作为演示入口。
+- `/[companySlug]`：企业管理入口；未登录时显示登录表单，已登录时进入后台并选中该企业。
+- `/[companySlug]/浏览页`：企业公开产品册；由 `proxy.ts` 重写到内部 `/[companySlug]/browse`。
+- `/[companySlug]/浏览页/p/[productCode]`：产品详情页；由 `proxy.ts` 重写到内部 `/[companySlug]/browse/p/[productCode]`。
 
 后台路由：
 
-- `/admin/login`：后台登录。
-- `/admin`：运营后台工作台。
+- `/admin/login`：运营方总后台登录。
+- `/admin`：运营后台工作台；也承接企业入口登录后的管理页面。
 
 API 路由：
 
@@ -119,8 +120,10 @@ RLS 策略：
 - `layout.tsx`：全局 HTML 和 metadata。
 - `globals.css`：全局设计系统、公开页、后台页、打印样式。
 - `page.tsx`：根路径重定向。
-- `c/[companySlug]/page.tsx`：公开产品册服务端入口。
-- `c/[companySlug]/p/[productCode]/page.tsx`：产品详情服务端入口。
+- `[companySlug]/page.tsx`：企业管理入口。
+- `[companySlug]/browse/page.tsx`：公开产品册服务端入口，承接用户访问的 `/[companySlug]/浏览页`。
+- `[companySlug]/browse/p/[productCode]/page.tsx`：产品详情服务端入口，承接用户访问的 `/[companySlug]/浏览页/p/[productCode]`。
+- `proxy.ts`：把用户可读的中文浏览页路径重写到内部 ASCII 路由。
 - `admin/page.tsx`：后台服务端入口，负责鉴权和读取后台快照。
 - `admin/login/page.tsx`：后台登录页入口。
 - `api/**/route.ts`：服务端 API。
@@ -149,24 +152,25 @@ RLS 策略：
 
 公开产品册：
 
-1. 用户访问 `/c/[companySlug]`。
-2. `src/app/c/[companySlug]/page.tsx` 调用 `getPublicCatalog(slug)`。
-3. `getPublicCatalog` 读取企业、分类、active 产品。
-4. 如果企业未开通或过期，页面只显示不可访问提示。
-5. 如果可访问，把必要数据传给 `PublicCatalog` 做搜索和筛选。
+1. 用户访问 `/[companySlug]/浏览页`。
+2. `proxy.ts` 重写到 `src/app/[companySlug]/browse/page.tsx`。
+3. `src/app/[companySlug]/browse/page.tsx` 调用 `getPublicCatalog(slug)`。
+4. `getPublicCatalog` 读取企业、分类、active 产品。
+5. 如果企业未开通或过期，页面只显示不可访问提示。
+6. 如果可访问，把必要数据传给 `PublicCatalog` 做搜索和筛选。
 
 产品详情：
 
-1. 用户访问 `/c/[companySlug]/p/[productCode]`。
+1. 用户访问 `/[companySlug]/浏览页/p/[productCode]`。
 2. `getProductDetail` 复用公开产品册规则。
 3. 找不到产品或企业不可访问时走 `notFound()`。
 
 后台登录：
 
-1. `/admin/login` 输入账号和密码。
+1. 企业访问 `/[companySlug]`，或运营方访问 `/admin/login`，输入账号和密码。
 2. `/api/admin/login` 校验 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`。
 3. 成功后写入 HTTP-only session cookie。
-4. `/admin` 通过 `isAdminAuthenticated()` 判断是否允许进入。
+4. `/admin` 通过 `isAdminAuthenticated()` 判断是否允许进入；企业入口会附带 `company` 参数自动选中该企业。
 
 图片上传：
 
@@ -268,9 +272,9 @@ RLS 策略：
 完成修改后：
 
 1. 运行 `npm run build`。
-2. 验证 `/c/demo-factory`。
-3. 验证 `/c/demo-factory/p/TC-001` 或任意产品详情。
-4. 验证 `/admin/login` 和 `/admin`。
+2. 验证 `/demo-factory/浏览页`。
+3. 验证 `/demo-factory/浏览页/p/TC-001` 或任意产品详情。
+4. 验证 `/demo-factory`、`/admin/login` 和 `/admin`。
 5. 对后台出货单至少点击一次“加入出货单”，确认合计变化。
 6. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
 
@@ -310,9 +314,9 @@ RLS 策略：
 最近验证通过的基线：
 
 - `npm run build` 通过。
-- 手机 390x844 视口下，`/c/demo-factory` 默认首屏可见 6 个产品。
+- 手机 390x844 视口下，`/demo-factory/浏览页` 默认首屏可见 6 个产品。
 - 搜索“陶瓷”返回 2 个产品。
-- `/c/demo-factory/p/TC-001` 产品详情正常展示。
+- `/demo-factory/浏览页/p/TC-001` 产品详情正常展示。
 - `/admin/login` 使用本地默认密码 `admin123` 可进入演示后台。
 - 后台点击 `HW-001` 的“加入出货单”后生成 1 行，合计 `¥3.80`。
 - 未发现旧 `photo_uploads` 业务引用。

@@ -4,7 +4,12 @@ import { LockKeyhole } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 
-export function LoginForm() {
+type LoginFormProps = {
+  redirectTo?: string;
+  description?: string;
+};
+
+export function LoginForm({ redirectTo = "/admin", description = "用于用户、产品、出货单和可用时间代管。" }: LoginFormProps) {
   const router = useRouter();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
@@ -27,7 +32,7 @@ export function LoginForm() {
       return;
     }
 
-    startTransition(() => router.push("/admin"));
+    startTransition(() => router.push(redirectTo));
   }
 
   return (
@@ -37,7 +42,7 @@ export function LoginForm() {
           <LockKeyhole size={24} />
         </div>
         <h1>后台登录</h1>
-        <p>用于用户、产品、出货单和可用时间代管。</p>
+        <p>{description}</p>
         <label>
           管理账号
           <input

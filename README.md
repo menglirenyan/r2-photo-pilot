@@ -11,11 +11,12 @@
 
 ## 当前功能
 
-- 浏览者访问 `/c/[companySlug]` 查看对应企业产品册。
+- 浏览者访问 `/[companySlug]/浏览页` 查看对应企业产品册。
 - 企业必须处于 `active` 且未过期状态，产品才会公开展示。
 - 手机端优先：搜索、分类横向筛选、双列产品流，首屏能看到至少 6 个产品。
-- 产品详情页路径为 `/c/[companySlug]/p/[productCode]`。
-- 后台路径为 `/admin`，由运营者代管用户、企业产品册、分类、产品、可用时间和出货单。
+- 产品详情页路径为 `/[companySlug]/浏览页/p/[productCode]`。
+- 企业管理入口为 `/[companySlug]`，登录后进入后台并自动选中该企业。
+- 运营者总后台路径为 `/admin`，用于代管用户、企业产品册、分类、产品、可用时间和出货单。
 - 后台使用 `ADMIN_USERNAME + ADMIN_PASSWORD + SESSION_SECRET` 生成 HTTP-only session cookie。
 - 图片上传继续走 R2 signed URL 直传，后台会先在浏览器端压缩为适合移动端展示的 JPEG。
 - 出货单字段为：名称、规格、单价、数量、价格，并自动计算总价。
@@ -29,8 +30,9 @@ npm run dev
 
 打开：
 
-- 产品册演示：`http://localhost:3000/c/demo-factory`
-- 后台：`http://localhost:3000/admin`
+- 企业管理入口演示：`http://localhost:3000/demo-factory`
+- 产品册演示：`http://localhost:3000/demo-factory/浏览页`
+- 运营者总后台：`http://localhost:3000/admin`
 
 如果没有配置 Supabase，本地开发会显示演示数据；写入类操作会被 API 拒绝。生产环境默认关闭演示数据回退，避免把未接入 Supabase 的站点误认为真实可用站点。
 

@@ -78,7 +78,7 @@ export function PublicCatalog({ company, categories, products }: PublicCatalogPr
       {visibleProducts.length > 0 ? (
         <section className="product-grid" aria-label="产品列表">
           {visibleProducts.map((product) => (
-            <Link className="product-card" href={`/c/${company.slug}/p/${product.product_code}`} key={product.id}>
+            <Link className="product-card" href={`/${company.slug}/浏览页/p/${product.product_code}`} key={product.id}>
               <div className="product-image">
                 <SafeImage src={product.image_url} alt={product.name} sizes="(max-width: 720px) 50vw, 220px" />
               </div>
