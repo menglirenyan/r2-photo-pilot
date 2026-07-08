@@ -14,14 +14,35 @@ export async function POST(request: Request) {
 
   const companyId = cleanText(body.company_id, 80);
   const name = cleanText(body.name, 80);
-  const code = cleanText(body.code, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  let code = cleanText(body.code, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-  if (!companyId || !name || !code) {
-    return jsonError("企业、类别名称和类别代码必填。");
+  if (!companyId || !name) {
+    return jsonError("企业和类别名称必填。");
   }
 
   const accessError = await requireCompanyAccess(supabase, session, companyId);
   if (accessError) return accessError;
+
+  if (!code) {
+    const { data: existingCategories, error: codeError } = await supabase
+      .from("categories")
+      .select("code")
+      .eq("company_id", companyId)
+      .like("code", "C%");
+
+    if (codeError) return jsonError(codeError.message, 500);
+
+    const usedCodes = new Set((existingCategories ?? []).map((category) => category.code));
+    for (let index = 1; index <= 9999; index += 1) {
+      const candidate = `C${String(index).padStart(3, "0")}`;
+      if (!usedCodes.has(candidate)) {
+        code = candidate;
+        break;
+      }
+    }
+  }
+
+  if (!code) return jsonError("类别代码生成失败。");
 
   const sortOrder = Number(body.sort_order || 0);
   const { data, error } = await supabase

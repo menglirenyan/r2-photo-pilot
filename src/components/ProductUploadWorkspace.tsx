@@ -67,7 +67,7 @@ async function compressImage(file: File) {
 export function ProductUploadWorkspace({ company, categories, configured }: ProductUploadWorkspaceProps) {
   const router = useRouter();
   const [categoryList, setCategoryList] = useState(categories);
-  const [categoryForm, setCategoryForm] = useState({ name: "", code: "" });
+  const [categoryInput, setCategoryInput] = useState("");
   const [productForm, setProductForm] = useState<ProductForm>(initialProductForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
@@ -77,26 +77,39 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
     router.push(`/${company.slug}`);
   }
 
-  async function createCategory(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage("");
+  function findCategory(value: string) {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+
+    return (
+      categoryList.find(
+        (category) => category.name.toLowerCase() === normalized || category.code.toLowerCase() === normalized
+      ) ?? null
+    );
+  }
+
+  async function resolveCategory() {
+    const existingCategory = findCategory(categoryInput);
+    if (existingCategory) return existingCategory;
+
+    const name = categoryInput.trim();
+    if (!name) throw new Error("请选择或输入分类。");
 
     const response = await fetch("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...categoryForm, company_id: company.id })
+      body: JSON.stringify({ company_id: company.id, name })
     });
 
     if (!response.ok) {
-      setMessage(await readError(response));
-      return;
+      throw new Error(await readError(response));
     }
 
     const payload = (await response.json()) as { category: Category };
     setCategoryList((current) => [...current, payload.category]);
-    setCategoryForm({ name: "", code: "" });
-    setProductForm((current) => ({ ...current, category_id: current.category_id || payload.category.id }));
-    setMessage("分类已创建。");
+    setProductForm((current) => ({ ...current, category_id: payload.category.id }));
+    setCategoryInput(payload.category.name);
+    return payload.category;
   }
 
   async function createProduct(event: FormEvent<HTMLFormElement>) {
@@ -109,6 +122,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
     setMessage("正在压缩并上传图片...");
 
     try {
+      const category = await resolveCategory();
       const compressed = await compressImage(selectedFile);
       const signResponse = await fetch("/api/sign-upload", {
         method: "POST",
@@ -137,6 +151,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...productForm,
+          category_id: category.id,
           company_id: company.id,
           image_url: signed.publicUrl,
           object_key: signed.objectKey,
@@ -148,7 +163,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
       if (!response.ok) throw new Error(await readError(response));
 
       const payload = (await response.json()) as { product: Product };
-      setProductForm({ ...initialProductForm, category_id: productForm.category_id });
+      setProductForm({ ...initialProductForm, category_id: category.id });
       setSelectedFile(null);
       setMessage(`产品已创建，编号 ${payload.product.product_code}。`);
     } catch (error) {
@@ -171,7 +186,6 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
           <a className="active" href={`/${company.slug}/upload`}>
             上传产品
           </a>
-          <a href={`/${company.slug}/shipments`}>出货单</a>
         </nav>
         <button className="sidebar-button" onClick={logout} type="button">
           <LogOut size={16} />
@@ -206,35 +220,26 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
               <PackagePlus size={18} />
               <h2>分类与产品上传</h2>
             </div>
-            <form className="inline-form" onSubmit={createCategory}>
-              <input
-                placeholder="分类名，如 五金配件"
-                value={categoryForm.name}
-                onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })}
-              />
-              <input
-                placeholder="代码，如 HW"
-                value={categoryForm.code}
-                onChange={(event) => setCategoryForm({ ...categoryForm, code: event.target.value })}
-              />
-              <button type="submit">新增分类</button>
-            </form>
 
             <form className="product-form" onSubmit={createProduct}>
               <label>
                 分类
-                <select
+                <input
+                  list="product-category-options"
+                  placeholder="选择已有分类或输入新分类"
                   required
-                  value={productForm.category_id}
-                  onChange={(event) => setProductForm({ ...productForm, category_id: event.target.value })}
-                >
-                  <option value="">请选择</option>
+                  value={categoryInput}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setCategoryInput(value);
+                    setProductForm({ ...productForm, category_id: findCategory(value)?.id || "" });
+                  }}
+                />
+                <datalist id="product-category-options">
                   {categoryList.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name} ({category.code})
-                    </option>
+                    <option key={category.id} label={category.code} value={category.name} />
                   ))}
-                </select>
+                </datalist>
               </label>
               <label>
                 名称

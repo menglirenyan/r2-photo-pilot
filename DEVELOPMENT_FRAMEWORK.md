@@ -49,7 +49,6 @@
 - `/`：重定向到 `/c001/浏览页`，仅作为本地演示入口。
 - `/[companySlug]`：企业管理入口；未登录时显示登录表单，已登录时进入该企业产品列表后台。
 - `/[companySlug]/upload`：企业产品上传入口；未登录时显示登录表单，已登录时进入独立上传界面。
-- `/[companySlug]/shipments`：企业临时出货单入口；从产品列表生成缓存草稿后进入，可下载图片或 Excel，不保存数据库。
 - `/[companySlug]/浏览页`：企业公开产品册；由 `proxy.ts` 重写到内部 `/[companySlug]/browse`。
 - `/[companySlug]/浏览页/p/[productCode]`：产品详情页；由 `proxy.ts` 重写到内部 `/[companySlug]/browse/p/[productCode]`。
 
@@ -126,7 +125,6 @@ RLS 策略：
 - `page.tsx`：根路径重定向。
 - `[companySlug]/page.tsx`：企业产品列表管理入口。
 - `[companySlug]/upload/page.tsx`：企业产品上传入口。
-- `[companySlug]/shipments/page.tsx`：企业临时出货单入口。
 - `[companySlug]/browse/page.tsx`：公开产品册服务端入口，承接用户访问的 `/[companySlug]/浏览页`。
 - `[companySlug]/browse/p/[productCode]/page.tsx`：产品详情服务端入口，承接用户访问的 `/[companySlug]/浏览页/p/[productCode]`。
 - `proxy.ts`：把用户可读的中文浏览页路径重写到内部 ASCII 路由。
@@ -140,10 +138,9 @@ RLS 策略：
 - `SafeImage.tsx`：产品图片兜底，图片失败时显示产品名占位。
 - `LoginForm.tsx`：平台和企业后台登录表单。
 - `AdminDashboard.tsx`：平台后台工作台，只渲染用户管理。
-- `CompanyProductListWorkspace.tsx`：企业产品列表工作台，复用公开产品册卡片布局，并承载批量选择、修改、删除和生成临时出货单入口。
+- `CompanyProductListWorkspace.tsx`：企业产品列表工作台，复用公开产品册卡片布局，并承载批量选择、修改、删除和当前页临时出货单编辑下载。
 - `ProductCatalogView.tsx`：公开浏览页和企业产品列表共用的产品册搜索、分类、卡片渲染组件。
 - `ProductUploadWorkspace.tsx`：企业产品上传工作台，承载分类创建、图片选择、压缩、R2 上传和产品创建。
-- `ShipmentWorkspace.tsx`：企业临时出货单工作台，读取 `sessionStorage` 草稿并导出 PNG 或 Excel 文件。
 
 `src/lib`：
 
@@ -180,7 +177,7 @@ RLS 策略：
 1. 企业访问 `/[companySlug]`，或运营方访问 `/admin/login`，输入账号和密码。
 2. `/api/admin/login` 对平台管理员校验 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`；对企业登录校验 `companies.login_username` 和 `companies.password_hash`。
 3. 成功后写入带角色的 HTTP-only session cookie。
-4. `/admin` 只允许平台管理员进入用户管理；`/[companySlug]`、`/[companySlug]/upload` 和 `/[companySlug]/shipments` 允许平台管理员或该企业 session 进入企业后台。
+4. `/admin` 只允许平台管理员进入用户管理；`/[companySlug]` 和 `/[companySlug]/upload` 允许平台管理员或该企业 session 进入企业后台。
 
 图片上传：
 
@@ -193,8 +190,8 @@ RLS 策略：
 出货单：
 
 1. 企业后台在 `/:companySlug` 产品列表批量选择产品。
-2. 点击“生成出货单”后，把名称、规格、单价、数量写入浏览器 `sessionStorage` 临时草稿。
-3. 跳转到 `/:companySlug/shipments`，数量和单价变化实时更新行价格和总价。
+2. 点击“生成出货单”后，在当前产品列表页打开临时出货单编辑区，并把名称、规格、单价、数量写入浏览器 `sessionStorage` 临时草稿。
+3. 数量和单价变化实时更新行价格和总价。
 4. 出货单不保存到数据库；草稿默认 2 小时过期，过期或清空后自动从浏览器缓存删除。
 5. 下载能力由前端生成 PNG 和 Excel 兼容 `.xls` 文件。
 
@@ -216,10 +213,9 @@ RLS 策略：
 - `/admin` 只展示用户管理，不展示产品、图片、出货单。
 - 企业后台 `/:companySlug` 以产品列表为主，不展示平台用户管理。
 - 企业上传页 `/:companySlug/upload` 单独展示分类创建和产品上传表单，桌面端和手机端都应可直接通过按钮或网址进入。
-- 企业出货单页 `/:companySlug/shipments` 单独展示临时出货单编辑和下载。
 - 企业后台产品列表与公开浏览页共用产品卡片布局；额外的选择、修改、删除、出货单操作只能出现在后台工具栏。
 - 产品行和关键按钮保留稳定测试属性，例如 `data-product-code`、`data-testid`。
-- 出货单编辑器和下载预览必须同步。
+- 出货单编辑器和下载预览必须在产品列表页内同步。
 
 设计系统：
 
@@ -288,8 +284,8 @@ RLS 策略：
 1. 运行 `npm run build`。
 2. 验证 `/c001/浏览页`。
 3. 验证 `/c001/浏览页/p/TC-001` 或任意产品详情。
-4. 验证 `/c001`、`/c001/upload`、`/c001/shipments`、`/admin/login` 和 `/admin`。
-5. 在 `/c001` 批量选择产品并生成出货单，验证 `/c001/shipments` 合计变化和下载按钮可见。
+4. 验证 `/c001`、`/c001/upload`、`/admin/login` 和 `/admin`。
+5. 在 `/c001` 批量选择产品并生成出货单，验证当前页合计变化和下载按钮可见。
 6. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
 
 ## 11. 常见改动指南
@@ -334,8 +330,7 @@ RLS 策略：
 - `/admin/login` 使用本地默认密码 `admin123` 可进入平台用户管理，不显示产品和出货单。
 - `/c001` 在本地无 Supabase 演示环境下使用 `demo/demo123` 可进入企业产品列表后台。
 - `/c001/upload` 在同一登录态下可进入独立产品上传页。
-- `/c001/shipments` 在同一登录态下可进入独立临时出货单页。
-- 企业后台选择 `HW-001` 后生成出货单，`/c001/shipments` 显示 1 行，合计 `¥3.80`。
+- 企业后台选择 `HW-001` 后生成出货单，当前页显示 1 行，合计 `¥3.80`。
 - 未发现旧 `photo_uploads` 业务引用。
 
 该基线是后续改动的最低回归要求。
