@@ -15,7 +15,8 @@
 - 企业必须处于 `active` 且未过期状态，产品才会公开展示。
 - 手机端优先：搜索、分类横向筛选、双列产品流，首屏能看到至少 6 个产品。
 - 产品详情页路径为 `/[companyNumber]/浏览页/p/[productCode]`。
-- 企业管理入口为 `/[companyNumber]`，登录后仍停留在该编号 URL，并进入该企业自己的产品、图片和出货单后台。
+- 企业管理入口为 `/[companyNumber]`，登录后仍停留在该编号 URL，并进入该企业自己的产品列表和出货单后台。
+- 产品上传入口为 `/[companyNumber]/upload`，也可以从企业后台的“上传产品”按钮进入。
 - 运营者总后台路径为 `/admin`，只用于管理企业用户、登录账号、开通状态和可用时间。
 - 企业编号由后台按顺序生成，例如 `c001`、`c002`；添加用户时由管理员填写企业登录账号和初始密码。
 - 后台使用 `ADMIN_USERNAME + ADMIN_PASSWORD + SESSION_SECRET` 生成 HTTP-only session cookie。

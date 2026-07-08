@@ -537,6 +537,7 @@ textarea:focus {
 }
 
 .admin-sidebar nav a:hover,
+.admin-sidebar nav a.active,
 .sidebar-button:hover {
   background: rgba(255, 255, 255, 0.08);
 }
@@ -567,6 +568,14 @@ textarea:focus {
   margin: 5px 0 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.admin-top-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .admin-count {
@@ -610,6 +619,15 @@ textarea:focus {
   grid-template-columns: minmax(360px, 0.78fr) minmax(0, 1.22fr);
 }
 
+.upload-layout {
+  display: grid;
+  max-width: 760px;
+}
+
+.upload-product-panel {
+  width: 100%;
+}
+
 .shipment-layout {
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: start;
@@ -629,6 +647,16 @@ textarea:focus {
   align-items: center;
   gap: 8px;
   margin-bottom: 14px;
+}
+
+.panel-title > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title-between {
+  justify-content: space-between;
 }
 
 .panel-title svg {
@@ -963,6 +991,14 @@ textarea:focus {
   .admin-top {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .admin-top-actions {
+    justify-content: stretch;
+  }
+
+  .admin-top-actions > a {
+    flex: 1 1 140px;
   }
 
   .company-row,

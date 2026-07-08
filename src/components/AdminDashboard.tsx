@@ -7,30 +7,21 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  Eye,
   FileText,
   ImagePlus,
   LogOut,
-  PackagePlus,
   Plus,
   Printer,
-  Save,
   Trash2,
   XCircle
 } from "lucide-react";
 import { compactDate, formatPrice } from "@/lib/format";
-import type { AdminSnapshot, Category, Company, Product, ShipmentDraftItem, ShipmentSheet } from "@/types";
+import type { AdminSnapshot, Company, Product, ShipmentDraftItem, ShipmentSheet } from "@/types";
 
 type AdminDashboardProps = AdminSnapshot & {
   initialCompanySlug?: string;
   mode?: "admin" | "company";
-};
-
-type ProductForm = {
-  category_id: string;
-  name: string;
-  specification: string;
-  unit_price: string;
-  description: string;
 };
 
 type CompanyForm = {
@@ -41,14 +32,6 @@ type CompanyForm = {
   paid_until: string;
   contact_name: string;
   contact_note: string;
-};
-
-const initialProductForm: ProductForm = {
-  category_id: "",
-  name: "",
-  specification: "",
-  unit_price: "",
-  description: ""
 };
 
 const initialCompanyForm: CompanyForm = {
@@ -66,45 +49,12 @@ async function readError(response: Response) {
   return payload.error || "操作失败。";
 }
 
-async function compressImage(file: File) {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("请选择图片文件。");
-  }
-
-  const bitmap = await createImageBitmap(file);
-  const maxEdge = 1600;
-  const ratio = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * ratio));
-  const height = Math.max(1, Math.round(bitmap.height * ratio));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("浏览器不支持图片压缩。");
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, width, height);
-  context.drawImage(bitmap, 0, 0, width, height);
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((nextBlob) => {
-      if (nextBlob) resolve(nextBlob);
-      else reject(new Error("图片压缩失败。"));
-    }, "image/jpeg", 0.84);
-  });
-
-  const compressed = new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
-  return { file: compressed, width, height };
-}
-
 type CompanyUpdatePatch = Partial<Company> & {
   login_password?: string;
 };
 
 export function AdminDashboard({
   companies,
-  categories,
   products,
   shipmentSheets,
   configured,
@@ -117,24 +67,16 @@ export function AdminDashboard({
   const initialCompany =
     companies.find((company) => company.slug === initialCompanySlug) ?? companies[0] ?? null;
   const [companyList, setCompanyList] = useState(companies);
-  const [categoryList, setCategoryList] = useState(categories);
   const [productList, setProductList] = useState(products);
   const [shipments, setShipments] = useState(shipmentSheets);
   const [message, setMessage] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState(initialCompany?.id || "");
   const [companyForm, setCompanyForm] = useState<CompanyForm>(initialCompanyForm);
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
-  const [categoryForm, setCategoryForm] = useState({ name: "", code: "" });
-  const [productForm, setProductForm] = useState<ProductForm>(initialProductForm);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [shipmentItems, setShipmentItems] = useState<ShipmentDraftItem[]>([]);
   const [shipmentMeta, setShipmentMeta] = useState({ title: "出货单", customer_name: "", note: "" });
 
   const selectedCompany = companyList.find((company) => company.id === selectedCompanyId) ?? companyList[0] ?? null;
-  const companyCategories = useMemo(
-    () => categoryList.filter((category) => category.company_id === selectedCompany?.id),
-    [categoryList, selectedCompany?.id]
-  );
   const companyProducts = useMemo(
     () => productList.filter((product) => product.company_id === selectedCompany?.id),
     [productList, selectedCompany?.id]
@@ -220,92 +162,10 @@ export function AdminDashboard({
 
     const nextCompanies = companyList.filter((item) => item.id !== company.id);
     setCompanyList(nextCompanies);
-    setCategoryList((current) => current.filter((item) => item.company_id !== company.id));
     setProductList((current) => current.filter((item) => item.company_id !== company.id));
     setShipments((current) => current.filter((item) => item.company_id !== company.id));
     setSelectedCompanyId((current) => (current === company.id ? nextCompanies[0]?.id || "" : current));
     setMessage("用户已删除。");
-  }
-
-  async function createCategory(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedCompany) return;
-    setMessage("");
-
-    const response = await fetch("/api/admin/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...categoryForm, company_id: selectedCompany.id })
-    });
-
-    if (!response.ok) {
-      setMessage(await readError(response));
-      return;
-    }
-
-    const payload = (await response.json()) as { category: Category };
-    setCategoryList((current) => [...current, payload.category]);
-    setCategoryForm({ name: "", code: "" });
-    setProductForm((current) => ({ ...current, category_id: current.category_id || payload.category.id }));
-    setMessage("分类已创建。");
-  }
-
-  async function createProduct(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedCompany || !selectedFile) {
-      setMessage("请选择企业和产品图片。");
-      return;
-    }
-
-    setMessage("正在压缩并上传图片...");
-
-    try {
-      const compressed = await compressImage(selectedFile);
-      const signResponse = await fetch("/api/sign-upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyId: selectedCompany.id,
-          fileName: compressed.file.name,
-          contentType: compressed.file.type,
-          size: compressed.file.size
-        })
-      });
-
-      if (!signResponse.ok) throw new Error(await readError(signResponse));
-      const signed = (await signResponse.json()) as { signedUrl: string; publicUrl: string; objectKey: string };
-
-      const uploadResponse = await fetch(signed.signedUrl, {
-        method: "PUT",
-        headers: { "Content-Type": compressed.file.type },
-        body: compressed.file
-      });
-
-      if (!uploadResponse.ok) throw new Error("R2 图片上传失败。");
-
-      const response = await fetch("/api/admin/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...productForm,
-          company_id: selectedCompany.id,
-          image_url: signed.publicUrl,
-          object_key: signed.objectKey,
-          image_width: compressed.width,
-          image_height: compressed.height
-        })
-      });
-
-      if (!response.ok) throw new Error(await readError(response));
-
-      const payload = (await response.json()) as { product: Product };
-      setProductList((current) => [payload.product, ...current]);
-      setProductForm({ ...initialProductForm, category_id: productForm.category_id });
-      setSelectedFile(null);
-      setMessage(`产品已创建，编号 ${payload.product.product_code}。`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "产品创建失败。");
-    }
   }
 
   async function toggleProduct(product: Product) {
@@ -381,6 +241,7 @@ export function AdminDashboard({
           ) : (
             <>
               <a href="#products">产品</a>
+              {selectedCompany ? <a href={`/${selectedCompany.slug}/upload`}>上传产品</a> : null}
               <a href="#shipments">出货单</a>
             </>
           )}
@@ -402,9 +263,16 @@ export function AdminDashboard({
             </p>
           </div>
           {isCompanyMode && selectedCompany ? (
-            <a className="ghost-action" href={`/${selectedCompany.slug}/浏览页`}>
-              查看浏览页
-            </a>
+            <div className="admin-top-actions">
+              <a className="primary-action" href={`/${selectedCompany.slug}/upload`}>
+                <ImagePlus size={16} />
+                上传产品
+              </a>
+              <a className="ghost-action" href={`/${selectedCompany.slug}/浏览页`}>
+                <Eye size={16} />
+                查看浏览页
+              </a>
+            </div>
           ) : (
             <span className="admin-count">共 {companyList.length} 个用户</span>
           )}
@@ -565,94 +433,18 @@ export function AdminDashboard({
 
         {isCompanyMode ? (
           <>
-        <section className="admin-grid product-admin" id="products">
-          <section className="admin-panel">
-            <div className="panel-title">
-              <PackagePlus size={18} />
-              <h2>分类与产品上传</h2>
-            </div>
-            <form className="inline-form" onSubmit={createCategory}>
-              <input
-                placeholder="分类名，如 五金配件"
-                value={categoryForm.name}
-                onChange={(event) => setCategoryForm({ ...categoryForm, name: event.target.value })}
-              />
-              <input
-                placeholder="代码，如 HW"
-                value={categoryForm.code}
-                onChange={(event) => setCategoryForm({ ...categoryForm, code: event.target.value })}
-              />
-              <button type="submit">新增分类</button>
-            </form>
-
-            <form className="product-form" onSubmit={createProduct}>
-              <label>
-                分类
-                <select
-                  required
-                  value={productForm.category_id}
-                  onChange={(event) => setProductForm({ ...productForm, category_id: event.target.value })}
-                >
-                  <option value="">请选择</option>
-                  {companyCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name} ({category.code})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                名称
-                <input
-                  required
-                  value={productForm.name}
-                  onChange={(event) => setProductForm({ ...productForm, name: event.target.value })}
-                />
-              </label>
-              <label>
-                规格
-                <input
-                  value={productForm.specification}
-                  onChange={(event) => setProductForm({ ...productForm, specification: event.target.value })}
-                />
-              </label>
-              <label>
-                单价（可空）
-                <input
-                  min="0"
-                  step="0.01"
-                  type="number"
-                  value={productForm.unit_price}
-                  onChange={(event) => setProductForm({ ...productForm, unit_price: event.target.value })}
-                />
-              </label>
-              <label className="wide">
-                描述
-                <textarea
-                  value={productForm.description}
-                  onChange={(event) => setProductForm({ ...productForm, description: event.target.value })}
-                />
-              </label>
-              <label className="upload-field">
-                <ImagePlus size={17} />
-                <span>{selectedFile ? selectedFile.name : "选择产品图片"}</span>
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                  type="file"
-                />
-              </label>
-              <button className="primary-action" type="submit">
-                <Save size={16} />
-                上传并创建产品
-              </button>
-            </form>
-          </section>
-
-          <section className="admin-panel product-table-panel">
-            <div className="panel-title">
-              <ImagePlus size={18} />
-              <h2>产品列表</h2>
+        <section className="admin-panel product-table-panel" id="products">
+            <div className="panel-title panel-title-between">
+              <span>
+                <ImagePlus size={18} />
+                <h2>产品列表</h2>
+              </span>
+              {selectedCompany ? (
+                <a className="primary-action" href={`/${selectedCompany.slug}/upload`}>
+                  <ImagePlus size={16} />
+                  上传产品
+                </a>
+              ) : null}
             </div>
             <div className="product-table">
               {companyProducts.map((product) => (
@@ -675,8 +467,8 @@ export function AdminDashboard({
                   </button>
                 </article>
               ))}
+              {companyProducts.length === 0 ? <div className="empty-admin">暂无产品，先进入上传产品页面。</div> : null}
             </div>
-          </section>
         </section>
 
         <section className="shipment-layout" id="shipments">
