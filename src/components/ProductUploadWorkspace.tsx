@@ -171,7 +171,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
           <a className="active" href={`/${company.slug}/upload`}>
             上传产品
           </a>
-          <a href={`/${company.slug}#shipments`}>出货单</a>
+          <a href={`/${company.slug}/shipments`}>出货单</a>
         </nav>
         <button className="sidebar-button" onClick={logout} type="button">
           <LogOut size={16} />

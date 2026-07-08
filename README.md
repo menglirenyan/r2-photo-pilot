@@ -15,13 +15,14 @@
 - 企业必须处于 `active` 且未过期状态，产品才会公开展示。
 - 手机端优先：搜索、分类横向筛选、双列产品流，首屏能看到至少 6 个产品。
 - 产品详情页路径为 `/[companyNumber]/浏览页/p/[productCode]`。
-- 企业管理入口为 `/[companyNumber]`，登录后仍停留在该编号 URL，并进入该企业自己的产品列表和出货单后台。
+- 企业管理入口为 `/[companyNumber]`，登录后仍停留在该编号 URL，并进入该企业自己的产品列表后台。
 - 产品上传入口为 `/[companyNumber]/upload`，也可以从企业后台的“上传产品”按钮进入。
+- 出货单入口为 `/[companyNumber]/shipments`，从企业产品列表批量选择产品后生成临时草稿。
 - 运营者总后台路径为 `/admin`，只用于管理企业用户、登录账号、开通状态和可用时间。
 - 企业编号由后台按顺序生成，例如 `c001`、`c002`；添加用户时由管理员填写企业登录账号和初始密码。
 - 后台使用 `ADMIN_USERNAME + ADMIN_PASSWORD + SESSION_SECRET` 生成 HTTP-only session cookie。
 - 图片上传继续走 R2 signed URL 直传，后台会先在浏览器端压缩为适合移动端展示的 JPEG。
-- 出货单字段为：名称、规格、单价、数量、价格，并自动计算总价。
+- 出货单字段为：名称、规格、单价、数量、价格，并自动计算总价；生成后只存浏览器临时缓存，可下载图片或 Excel，不写入数据库。
 
 ## 本地运行
 
@@ -33,6 +34,7 @@ npm run dev
 打开：
 
 - 企业管理入口演示：`http://localhost:3000/c001`
+- 出货单入口演示：`http://localhost:3000/c001/shipments`
 - 产品册演示：`http://localhost:3000/c001/浏览页`
 - 运营者总后台：`http://localhost:3000/admin`
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LoginForm } from "@/components/LoginForm";
-import { CompanyProductListWorkspace } from "@/components/CompanyProductListWorkspace";
+import { ShipmentWorkspace } from "@/components/ShipmentWorkspace";
 import { isCompanyOrAdminAuthenticated } from "@/lib/auth";
 import { getCompanyAdminSnapshot } from "@/lib/data";
 
@@ -13,12 +13,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { companySlug } = await params;
 
   return {
-    title: `${companySlug} 产品列表`,
-    description: "企业产品列表管理入口。"
+    title: `${companySlug} 出货单`,
+    description: "企业临时出货单下载入口。"
   };
 }
 
-export default async function CompanyAdminEntryPage({ params }: PageProps) {
+export default async function CompanyShipmentPage({ params }: PageProps) {
   const { companySlug } = await params;
 
   if (!(await isCompanyOrAdminAuthenticated(companySlug))) {
@@ -26,8 +26,8 @@ export default async function CompanyAdminEntryPage({ params }: PageProps) {
       <LoginForm
         companySlug={companySlug}
         defaultUsername=""
-        redirectTo={`/${companySlug}`}
-        description={`${companySlug} 企业后台登录。`}
+        redirectTo={`/${companySlug}/shipments`}
+        description={`${companySlug} 出货单登录。`}
       />
     );
   }
@@ -36,12 +36,5 @@ export default async function CompanyAdminEntryPage({ params }: PageProps) {
   const company = snapshot?.companies[0];
   if (!snapshot || !company) notFound();
 
-  return (
-    <CompanyProductListWorkspace
-      categories={snapshot.categories}
-      company={company}
-      configured={snapshot.configured}
-      products={snapshot.products}
-    />
-  );
+  return <ShipmentWorkspace company={company} configured={snapshot.configured} />;
 }

@@ -9,5 +9,5 @@ export default async function AdminPage() {
   }
 
   const snapshot = await getAdminSnapshot();
-  return <AdminDashboard {...snapshot} mode="admin" />;
+  return <AdminDashboard {...snapshot} />;
 }

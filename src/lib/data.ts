@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { getSampleAdminSnapshot, getSampleCatalog, sampleCompany } from "@/lib/sample-data";
 import { getSupabaseServerClient } from "@/lib/supabase";
-import type { AdminSnapshot, Category, Company, Product, PublicCatalog, ShipmentSheet } from "@/types";
+import type { AdminSnapshot, Category, Company, Product, PublicCatalog } from "@/types";
 import { isCompanyAccessible } from "@/lib/format";
 import { isDemoReadFallbackEnabled } from "@/lib/runtime-config";
 
@@ -148,7 +148,7 @@ export const getCompanyAdminSnapshot = cache(async (slug: string): Promise<Admin
   }
 
   const company = companyResult.data as Company;
-  const [categoriesResult, productsResult, shipmentResult] = await Promise.all([
+  const [categoriesResult, productsResult] = await Promise.all([
     withTimeout(
       supabase
         .from("categories")
@@ -167,14 +167,10 @@ export const getCompanyAdminSnapshot = cache(async (slug: string): Promise<Admin
         .order("created_at", { ascending: false })
         .limit(200),
       timeoutResponse()
-    ),
-    withTimeout(
-      supabase.from("shipment_sheets").select("*").eq("company_id", company.id).order("created_at", { ascending: false }).limit(30),
-      timeoutResponse()
     )
   ]);
 
-  if (categoriesResult.error || productsResult.error || shipmentResult.error) {
+  if (categoriesResult.error || productsResult.error) {
     return allowDemoFallback && slug === sampleCompany.slug ? getSampleAdminSnapshot() : null;
   }
 
@@ -182,7 +178,7 @@ export const getCompanyAdminSnapshot = cache(async (slug: string): Promise<Admin
     companies: [company],
     categories: (categoriesResult.data ?? []) as Category[],
     products: (productsResult.data ?? []) as unknown as Product[],
-    shipmentSheets: (shipmentResult.data ?? []) as ShipmentSheet[],
+    shipmentSheets: [],
     configured: true
   };
 });

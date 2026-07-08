@@ -46,3 +46,25 @@ export async function PATCH(request: Request, { params }: Params) {
   if (error) return jsonError(error.message, 500);
   return NextResponse.json({ product: data });
 }
+
+export async function DELETE(_request: Request, { params }: Params) {
+  const { response, supabase, session } = await requireAdmin();
+  if (response) return response;
+
+  const { id } = await params;
+  const { data: existingProduct, error: existingError } = await supabase
+    .from("products")
+    .select("id,company_id")
+    .eq("id", id)
+    .single();
+
+  if (existingError || !existingProduct) return jsonError("产品不存在。", 404);
+
+  const accessError = await requireCompanyAccess(supabase, session, existingProduct.company_id);
+  if (accessError) return accessError;
+
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) return jsonError(error.message, 500);
+
+  return NextResponse.json({ ok: true });
+}
