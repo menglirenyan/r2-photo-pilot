@@ -119,10 +119,9 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
       return;
     }
 
-    setMessage("正在压缩并上传图片...");
+    setMessage("正在上传图片...");
 
     try {
-      const category = await resolveCategory();
       const compressed = await compressImage(selectedFile);
       const signResponse = await fetch("/api/sign-upload", {
         method: "POST",
@@ -138,14 +137,21 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
       if (!signResponse.ok) throw new Error(await readError(signResponse));
       const signed = (await signResponse.json()) as { signedUrl: string; publicUrl: string; objectKey: string };
 
-      const uploadResponse = await fetch(signed.signedUrl, {
-        method: "PUT",
-        headers: { "Content-Type": compressed.file.type },
-        body: compressed.file
-      });
+      let uploadResponse: Response;
+      try {
+        uploadResponse = await fetch(signed.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": compressed.file.type },
+          body: compressed.file
+        });
+      } catch {
+        throw new Error("图片上传失败：浏览器无法连接 R2，请检查 R2 CORS 是否允许当前网址。");
+      }
 
-      if (!uploadResponse.ok) throw new Error("R2 图片上传失败。");
+      if (!uploadResponse.ok) throw new Error("图片上传失败：R2 拒绝了本次上传。");
 
+      setMessage("正在保存产品...");
+      const category = await resolveCategory();
       const response = await fetch("/api/admin/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

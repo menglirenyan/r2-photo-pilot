@@ -5,6 +5,8 @@
       "allowed": {
         "origins": [
           "http://localhost:3000",
+          "http://localhost:3102",
+          "http://127.0.0.1:3102",
           "https://r2-photo-pilot.vercel.app",
           "https://huowu.org",
           "https://www.huowu.org"
