@@ -23,5 +23,17 @@ export function SafeImage({ src, alt, priority = false, sizes }: SafeImageProps)
     );
   }
 
-  return <Image src={src} alt={alt} fill priority={priority} sizes={sizes} loading={priority ? "eager" : "lazy"} onError={() => setFailed(true)} />;
+  return (
+    <Image
+      alt={alt}
+      decoding="async"
+      fill
+      loading={priority ? "eager" : "lazy"}
+      onError={() => setFailed(true)}
+      priority={priority}
+      sizes={sizes}
+      src={src}
+      unoptimized
+    />
+  );
 }

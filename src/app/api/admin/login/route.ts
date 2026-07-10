@@ -8,9 +8,11 @@ import {
 import { isProductionRuntime } from "@/lib/runtime-config";
 import { sampleCompany } from "@/lib/sample-data";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import { readJsonBody } from "@/lib/api";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { username?: string; password?: string; companySlug?: string };
+  const body = await readJsonBody<{ username?: string; password?: string; companySlug?: string }>(request);
+  if (!body) return NextResponse.json({ error: "请求格式不正确。" }, { status: 400 });
   const username = (body.username ?? "").trim();
   const password = body.password ?? "";
   const companySlug = (body.companySlug ?? "").trim();
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
     if (
       error ||
       !company ||
-      company.login_username !== username ||
+      company.login_username.toLocaleLowerCase() !== username.toLocaleLowerCase() ||
       !isPasswordHashValid(password, company.password_hash || "")
     ) {
       return NextResponse.json({ error: "账号或密码不正确。" }, { status: 401 });

@@ -37,8 +37,12 @@ async function compressImage(file: File) {
     throw new Error("请选择图片文件。");
   }
 
+  if (file.size > 25 * 1024 * 1024) {
+    throw new Error("原图不能超过 25MB，请先在手机相册中适当裁剪。");
+  }
+
   const bitmap = await createImageBitmap(file);
-  const maxEdge = 1600;
+  const maxEdge = 960;
   const ratio = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * ratio));
   const height = Math.max(1, Math.round(bitmap.height * ratio));
@@ -52,16 +56,35 @@ async function compressImage(file: File) {
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, width, height);
   context.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((nextBlob) => {
       if (nextBlob) resolve(nextBlob);
       else reject(new Error("图片压缩失败。"));
-    }, "image/jpeg", 0.84);
+    }, "image/webp", 0.74);
   });
 
-  const compressed = new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+  const compressed = new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
   return { file: compressed, width, height };
+}
+
+function uploadToR2(signedUrl: string, file: File, onProgress: (percent: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", signedUrl);
+    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.setRequestHeader("Cache-Control", "public, max-age=31536000, immutable");
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onerror = () => reject(new Error("图片上传失败：无法连接图片存储，请检查网络后重试。"));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error("图片上传失败：图片存储拒绝了本次上传。"));
+    };
+    xhr.send(file);
+  });
 }
 
 export function ProductUploadWorkspace({ company, categories, configured }: ProductUploadWorkspaceProps) {
@@ -71,6 +94,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
   const [productForm, setProductForm] = useState<ProductForm>(initialProductForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -114,12 +138,14 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
 
   async function createProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
     if (!selectedFile) {
       setMessage("请选择产品图片。");
       return;
     }
 
     setMessage("正在上传图片...");
+    setIsSubmitting(true);
 
     try {
       const compressed = await compressImage(selectedFile);
@@ -137,18 +163,9 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
       if (!signResponse.ok) throw new Error(await readError(signResponse));
       const signed = (await signResponse.json()) as { signedUrl: string; publicUrl: string; objectKey: string };
 
-      let uploadResponse: Response;
-      try {
-        uploadResponse = await fetch(signed.signedUrl, {
-          method: "PUT",
-          headers: { "Content-Type": compressed.file.type },
-          body: compressed.file
-        });
-      } catch {
-        throw new Error("图片上传失败：浏览器无法连接 R2，请检查 R2 CORS 是否允许当前网址。");
-      }
-
-      if (!uploadResponse.ok) throw new Error("图片上传失败：R2 拒绝了本次上传。");
+      await uploadToR2(signed.signedUrl, compressed.file, (percent) => {
+        setMessage(`正在上传图片 ${percent}%`);
+      });
 
       setMessage("正在保存产品...");
       const category = await resolveCategory();
@@ -174,6 +191,8 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
       setMessage(`产品已创建，编号 ${payload.product.product_code}。`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "产品创建失败。");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -210,7 +229,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
               <ArrowLeft size={16} />
               返回产品列表
             </a>
-            <a className="ghost-action" href={`/${company.slug}/浏览页`}>
+            <a className="ghost-action" href={`/c/${company.slug}`}>
               <Eye size={16} />
               查看浏览页
             </a>
@@ -218,7 +237,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
         </header>
 
         {!configured ? <div className="admin-warning">当前未配置 Supabase，页面展示演示数据；写入操作会被后端拒绝。</div> : null}
-        {message ? <div className="admin-message">{message}</div> : null}
+        {message ? <div className="admin-message" role="status">{message}</div> : null}
 
         <section className="upload-layout">
           <section className="admin-panel upload-product-panel">
@@ -227,7 +246,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
               <h2>分类与产品上传</h2>
             </div>
 
-            <form className="product-form" onSubmit={createProduct}>
+            <form aria-busy={isSubmitting} className="product-form" onSubmit={createProduct}>
               <label>
                 分类
                 <input
@@ -281,16 +300,16 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
               </label>
               <label className="upload-field">
                 <ImagePlus size={17} />
-                <span>{selectedFile ? selectedFile.name : "选择产品图片"}</span>
+                <span>{selectedFile ? selectedFile.name : "选择产品图片（自动压缩）"}</span>
                 <input
                   accept="image/jpeg,image/png,image/webp"
                   onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
                   type="file"
                 />
               </label>
-              <button className="primary-action" type="submit">
+              <button className="primary-action" disabled={!configured || isSubmitting} type="submit">
                 <Save size={16} />
-                上传并创建产品
+                {isSubmitting ? "正在处理..." : "上传并创建产品"}
               </button>
             </form>
           </section>

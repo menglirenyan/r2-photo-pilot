@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="460" viewBox="0 0 640 460">
+  <rect width="640" height="460" fill="#e8efec"/>
+  <path d="M92 372h456" stroke="#c7d5cf" stroke-width="2"/>
+  <g transform="translate(320 225) rotate(-18)">
+    <rect x="-154" y="-45" width="308" height="90" rx="22" fill="#71847c"/>
+    <rect x="-112" y="-24" width="224" height="48" rx="12" fill="#dce5e1"/>
+    <circle cx="-108" cy="0" r="56" fill="#4e625a"/>
+    <circle cx="-108" cy="0" r="23" fill="#e8efec"/>
+    <circle cx="108" cy="0" r="56" fill="#4e625a"/>
+    <circle cx="108" cy="0" r="23" fill="#e8efec"/>
+  </g>
+  <text x="32" y="52" fill="#0f766e" font-family="Arial,sans-serif" font-size="22" font-weight="700">HARDWARE</text>
+</svg>

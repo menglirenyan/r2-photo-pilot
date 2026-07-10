@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
-import { cleanText, jsonError, requireAdmin, requireCompanyAccess } from "@/lib/api";
+import { cleanText, databaseError, jsonError, readJsonBody, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import type { ShipmentDraftItem } from "@/types";
 
 export async function POST(request: Request) {
   const { response, supabase, session } = await requireAdmin();
   if (response) return response;
 
-  const body = (await request.json()) as {
+  const body = await readJsonBody<{
     company_id?: string;
     title?: string;
     customer_name?: string;
     note?: string;
     items?: ShipmentDraftItem[];
-  };
+  }>(request);
+  if (!body) return jsonError("请求格式不正确。");
 
   const companyId = cleanText(body.company_id, 80);
   const items = Array.isArray(body.items) ? body.items : [];
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
     .select("*")
     .single();
 
-  if (sheetError || !sheet) return jsonError(sheetError?.message || "创建出货单失败。", 500);
+  if (sheetError || !sheet) return sheetError ? databaseError(sheetError) : jsonError("创建出货单失败。", 500);
 
   const { data: sheetItems, error: itemError } = await supabase
     .from("shipment_sheet_items")
@@ -75,7 +76,10 @@ export async function POST(request: Request) {
     )
     .select("*");
 
-  if (itemError) return jsonError(itemError.message, 500);
+  if (itemError) {
+    await supabase.from("shipment_sheets").delete().eq("id", sheet.id);
+    return databaseError(itemError);
+  }
 
   return NextResponse.json({ shipmentSheet: sheet, items: sheetItems ?? [] }, { status: 201 });
 }

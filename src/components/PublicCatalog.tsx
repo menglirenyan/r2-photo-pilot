@@ -17,9 +17,13 @@ export function PublicCatalog({ company, categories, products }: PublicCatalogPr
       categories={categories}
       company={company}
       products={products}
-      renderProduct={(product) => (
-        <Link className="product-card" href={`/${company.slug}/浏览页/p/${product.product_code}`}>
-          <ProductCardContent product={product} />
+      renderProduct={(product, index) => (
+        <Link
+          className="product-card"
+          data-product-code={product.product_code}
+          href={`/c/${company.slug}/p/${product.product_code}`}
+        >
+          <ProductCardContent priority={index < 2} product={product} />
         </Link>
       )}
     />

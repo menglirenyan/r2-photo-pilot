@@ -12,7 +12,7 @@
           "https://www.huowu.org"
         ],
         "methods": ["GET", "HEAD", "PUT"],
-        "headers": ["content-type"]
+        "headers": ["content-type", "cache-control"]
       },
       "exposeHeaders": ["etag"],
       "maxAgeSeconds": 3600

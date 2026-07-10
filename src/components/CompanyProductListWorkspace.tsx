@@ -401,7 +401,7 @@ export function CompanyProductListWorkspace({
               <ImagePlus size={16} />
               上传产品
             </a>
-            <a className="ghost-action" href={`/${company.slug}/浏览页`}>
+            <a className="ghost-action" href={`/c/${company.slug}`}>
               <Eye size={16} />
               查看浏览页
             </a>
@@ -409,7 +409,7 @@ export function CompanyProductListWorkspace({
         </header>
 
         {!configured ? <div className="admin-warning">当前未配置 Supabase，页面展示演示数据；写入操作会被后端拒绝。</div> : null}
-        {message ? <div className="admin-message">{message}</div> : null}
+        {message ? <div className="admin-message" role="status">{message}</div> : null}
 
         <section className="admin-catalog-workspace">
           <div className="catalog-admin-bar">

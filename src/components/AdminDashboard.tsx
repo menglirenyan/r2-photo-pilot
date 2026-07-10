@@ -146,7 +146,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
         </header>
 
         {!configured ? <div className="admin-warning">当前未配置 Supabase，页面展示演示数据；写入操作会被后端拒绝。</div> : null}
-        {message ? <div className="admin-message">{message}</div> : null}
+        {message ? <div className="admin-message" role="status">{message}</div> : null}
 
         <section className="admin-grid" id="companies">
           <form className="admin-panel" onSubmit={createCompany}>
@@ -157,13 +157,14 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
             <div className="field-grid two">
               <label>
                 用户名称
-                <input value={companyForm.name} onChange={(event) => setCompanyForm({ ...companyForm, name: event.target.value })} />
+                <input required value={companyForm.name} onChange={(event) => setCompanyForm({ ...companyForm, name: event.target.value })} />
               </label>
               <label>
                 登录账号
                 <input
                   autoComplete="username"
                   placeholder="例如 factory001"
+                  required
                   value={companyForm.login_username}
                   onChange={(event) => setCompanyForm({ ...companyForm, login_username: event.target.value })}
                 />
@@ -211,7 +212,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
                 />
               </label>
             </div>
-            <button className="primary-action" type="submit">
+            <button className="primary-action" disabled={!configured} type="submit">
               <Plus size={16} />
               添加用户
             </button>
@@ -229,7 +230,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
                     <strong>{company.name}</strong>
                     <span>编号：{company.slug}</span>
                     <small>登录账号：{company.login_username || "-"}</small>
-                    <small>浏览页：/{company.slug}/浏览页</small>
+                    <small>公开目录：/c/{company.slug}</small>
                     <small>当前到期：{compactDate(company.paid_until)}</small>
                   </div>
                   <div className="company-controls">

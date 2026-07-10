@@ -64,6 +64,20 @@ export function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
+export async function readJsonBody<T>(request: Request): Promise<T | null> {
+  try {
+    return (await request.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export function databaseError(error: { code?: string | null }, conflictMessage = "数据已存在，请检查后重试。") {
+  if (error.code === "23505") return jsonError(conflictMessage, 409);
+  if (error.code === "23503") return jsonError("数据仍被其他记录使用，暂时不能删除。", 409);
+  return jsonError("数据库操作失败，请稍后重试。", 500);
+}
+
 export function cleanText(value: unknown, maxLength: number) {
   return String(value ?? "")
     .trim()

@@ -17,20 +17,25 @@ type ProductCatalogViewProps = {
   countNote?: string;
   emptyText?: string;
   products: CatalogListProduct[];
-  renderProduct: (product: CatalogListProduct) => ReactNode;
+  renderProduct: (product: CatalogListProduct, index: number) => ReactNode;
 };
 
-export function ProductCardContent({ product }: { product: CatalogListProduct }) {
+export function ProductCardContent({ product, priority = false }: { product: CatalogListProduct; priority?: boolean }) {
   return (
     <>
       <div className="product-image">
-        <SafeImage src={product.image_url} alt={product.name} sizes="(max-width: 720px) 50vw, 220px" />
+        <SafeImage
+          src={product.image_url}
+          alt={product.name}
+          priority={priority}
+          sizes="(max-width: 720px) 50vw, 220px"
+        />
       </div>
       <div className="product-card-body">
-        <span className="product-code">{product.product_code}</span>
         <h2>{product.name}</h2>
+        <span className="product-code">{product.product_code}</span>
         <p>{product.specification || "规格待确认"}</p>
-        {product.unit_price !== null ? <strong>{formatPrice(product.unit_price)}</strong> : <em>询价</em>}
+        {product.unit_price !== null ? <strong>{formatPrice(product.unit_price)}</strong> : null}
       </div>
     </>
   );
@@ -40,14 +45,20 @@ export function ProductCatalogView({
   asMain = false,
   categories,
   company,
-  countNote = "仅展示产品信息，无在线下单",
+  countNote,
   emptyText = "没有匹配的产品。",
   products,
   renderProduct
 }: ProductCatalogViewProps) {
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const Wrapper: "main" | "section" = asMain ? "main" : "section";
+
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === categoryId) ?? null,
+    [categories, categoryId]
+  );
 
   const visibleProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -82,19 +93,42 @@ export function ProductCatalogView({
           <Search size={16} />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、规格、编号" />
         </label>
-        <button className="catalog-filter" type="button" aria-label="筛选">
+        <button
+          aria-controls="catalog-categories"
+          aria-expanded={filtersOpen}
+          aria-label={filtersOpen ? "收起产品分类" : "筛选产品分类"}
+          className={filtersOpen ? "catalog-filter active" : "catalog-filter"}
+          data-testid="catalog-filter-toggle"
+          onClick={() => setFiltersOpen((current) => !current)}
+          type="button"
+        >
           <SlidersHorizontal size={17} />
+          <span>分类</span>
         </button>
-        <nav className="category-tabs" aria-label="产品分类">
-          <button className={categoryId === "all" ? "active" : ""} type="button" onClick={() => setCategoryId("all")}>
+        <nav
+          className={filtersOpen ? "category-tabs open" : "category-tabs"}
+          id="catalog-categories"
+          aria-label="产品分类"
+        >
+          <button
+            className={categoryId === "all" ? "active" : ""}
+            aria-pressed={categoryId === "all"}
+            type="button"
+            onClick={() => {
+              setCategoryId("all");
+            }}
+          >
             全部
           </button>
           {categories.map((category) => (
             <button
               className={categoryId === category.id ? "active" : ""}
+              aria-pressed={categoryId === category.id}
               key={category.id}
               type="button"
-              onClick={() => setCategoryId(category.id)}
+              onClick={() => {
+                setCategoryId(category.id);
+              }}
             >
               {category.name}
             </button>
@@ -102,19 +136,35 @@ export function ProductCatalogView({
         </nav>
       </section>
 
-      <section className="catalog-count">
-        <span>{visibleProducts.length} 个产品</span>
-        <span>{countNote}</span>
+      <section className="catalog-count" aria-live="polite">
+        <span>
+          {selectedCategory ? `${selectedCategory.name} · ` : ""}
+          {visibleProducts.length} 个产品
+        </span>
+        {countNote ? <span>{countNote}</span> : null}
       </section>
 
       {visibleProducts.length > 0 ? (
         <section className="product-grid" aria-label="产品列表">
-          {visibleProducts.map((product) => (
-            <Fragment key={product.id}>{renderProduct(product)}</Fragment>
+          {visibleProducts.map((product, index) => (
+            <Fragment key={product.id}>{renderProduct(product, index)}</Fragment>
           ))}
         </section>
       ) : (
-        <div className="catalog-empty">{emptyText}</div>
+        <div className="catalog-empty">
+          <strong>{emptyText}</strong>
+          <span>可更换关键词或产品分类后重试。</span>
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setCategoryId("all");
+              setFiltersOpen(false);
+            }}
+          >
+            清除筛选
+          </button>
+        </div>
       )}
     </Wrapper>
   );

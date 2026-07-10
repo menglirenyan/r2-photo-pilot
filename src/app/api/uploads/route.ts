@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
   return NextResponse.json(
     {
-      error: "旧图片上传验证接口已下线。请使用 /[companySlug]/浏览页 浏览产品，或登录 /[companySlug] 管理产品。"
+      error: "旧图片上传验证接口已下线。请使用 /c/[companySlug] 浏览产品，或登录 /[companySlug] 管理产品。"
     },
     { status: 410 }
   );

@@ -81,6 +81,8 @@ r2-photo-pilot
    - 例如 `https://pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev`
    - 对应 `R2_PUBLIC_BASE_URL`
 9. 配置 CORS，使用 `r2-cors.example.json`。
+   - 上传请求需要允许 `content-type` 和 `cache-control` 两个请求头。
+   - 建议给公开桶绑定独立图片域名，并把该地址填入 `R2_PUBLIC_BASE_URL`，减少公开 `r2.dev` 域名在国内网络下的波动。
 10. 创建 R2 API token 或 S3 API token，权限限定到当前 bucket 的对象读写。
 11. 记录：
     - Cloudflare Account ID -> `R2_ACCOUNT_ID`

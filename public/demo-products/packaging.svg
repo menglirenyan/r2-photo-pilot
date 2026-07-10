@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="460" viewBox="0 0 640 460">
+  <rect width="640" height="460" fill="#f1ede4"/>
+  <path d="M170 153l150-74 150 74-150 76z" fill="#d1aa6e"/>
+  <path d="M170 153v174l150 75V229z" fill="#b8894f"/>
+  <path d="M470 153v174l-150 75V229z" fill="#c79c62"/>
+  <path d="M320 79v150" stroke="#936b3b" stroke-width="5"/>
+  <path d="M92 402h456" stroke="#ddd2bf" stroke-width="2"/>
+  <text x="32" y="52" fill="#8b5f2a" font-family="Arial,sans-serif" font-size="22" font-weight="700">PACKAGING</text>
+</svg>

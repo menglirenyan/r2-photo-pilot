@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { cleanText, jsonError, requireAdmin, requireCompanyAccess } from "@/lib/api";
+import { cleanText, databaseError, jsonError, readJsonBody, requireAdmin, requireCompanyAccess } from "@/lib/api";
 
 export async function POST(request: Request) {
   const { response, supabase, session } = await requireAdmin();
   if (response) return response;
 
-  const body = (await request.json()) as {
+  const body = await readJsonBody<{
     company_id?: string;
     name?: string;
     code?: string;
     sort_order?: number;
-  };
+  }>(request);
+  if (!body) return jsonError("请求格式不正确。");
 
   const companyId = cleanText(body.company_id, 80);
   const name = cleanText(body.name, 80);
@@ -56,6 +57,6 @@ export async function POST(request: Request) {
     .select("*")
     .single();
 
-  if (error) return jsonError(error.message, 500);
+  if (error) return databaseError(error, "分类名称或代码已存在。");
   return NextResponse.json({ category: data }, { status: 201 });
 }

@@ -1,7 +1,7 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
-import { cleanText, requireAdmin, requireCompanyAccess } from "@/lib/api";
+import { cleanText, readJsonBody, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import { createR2Client, getMaxUploadBytes, getR2Config } from "@/lib/r2";
 
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -33,12 +33,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = (await request.json()) as {
+  const body = await readJsonBody<{
     fileName?: string;
     contentType?: string;
     size?: number;
     companyId?: string;
-  };
+  }>(request);
+  if (!body) return NextResponse.json({ error: "请求格式不正确。" }, { status: 400 });
 
   const fileName = body.fileName ? sanitizeFileName(body.fileName) : "photo.jpg";
   const contentType = body.contentType || "application/octet-stream";
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
 
   if (!Number.isFinite(size) || size <= 0 || size > maxUploadBytes) {
     return NextResponse.json(
-      { error: `Image must be smaller than ${Math.round(maxUploadBytes / 1024 / 1024)}MB.` },
+      { error: `图片大小不能超过 ${Math.round(maxUploadBytes / 1024 / 1024)}MB。` },
       { status: 400 }
     );
   }
@@ -72,7 +73,8 @@ export async function POST(request: Request) {
     new PutObjectCommand({
       Bucket: config.bucketName,
       Key: objectKey,
-      ContentType: contentType
+      ContentType: contentType,
+      CacheControl: "public, max-age=31536000, immutable"
     }),
     { expiresIn: 300 }
   );

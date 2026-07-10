@@ -8,7 +8,7 @@
 
 当前阶段目标：
 
-- 浏览者通过企业公开链接访问产品册，例如 `/c001/浏览页`。
+- 浏览者通过企业公开链接访问产品册，例如 `/c/c001`。
 - 企业只有在后台被手动开通、且未过期时，公开页才展示产品。
 - 企业用户不自助注册，不在线付款，不下单。
 - 企业通过 `/:companySlug` 登录管理自己的产品册；运营者通过 `/admin` 只管理企业用户、登录账号、开通状态和可用时间。
@@ -46,11 +46,12 @@
 
 公开路由：
 
-- `/`：重定向到 `/c001/浏览页`，仅作为本地演示入口。
+- `/`：重定向到 `/c/c001`，仅作为本地演示入口。
 - `/[companySlug]`：企业管理入口；未登录时显示登录表单，已登录时进入该企业产品列表后台。
 - `/[companySlug]/upload`：企业产品上传入口；未登录时显示登录表单，已登录时进入独立上传界面。
-- `/[companySlug]/浏览页`：企业公开产品册；由 `proxy.ts` 重写到内部 `/[companySlug]/browse`。
-- `/[companySlug]/浏览页/p/[productCode]`：产品详情页；由 `proxy.ts` 重写到内部 `/[companySlug]/browse/p/[productCode]`。
+- `/c/[companySlug]`：企业公开产品册。
+- `/c/[companySlug]/p/[productCode]`：产品详情页。
+- 旧路径 `/[companySlug]/浏览页` 与详情路径继续兼容，并重定向到上述正式路径。
 
 后台路由：
 
@@ -125,9 +126,9 @@ RLS 策略：
 - `page.tsx`：根路径重定向。
 - `[companySlug]/page.tsx`：企业产品列表管理入口。
 - `[companySlug]/upload/page.tsx`：企业产品上传入口。
-- `[companySlug]/browse/page.tsx`：公开产品册服务端入口，承接用户访问的 `/[companySlug]/浏览页`。
-- `[companySlug]/browse/p/[productCode]/page.tsx`：产品详情服务端入口，承接用户访问的 `/[companySlug]/浏览页/p/[productCode]`。
-- `proxy.ts`：把用户可读的中文浏览页路径重写到内部 ASCII 路由。
+- `c/[companySlug]/page.tsx`：公开产品册服务端入口。
+- `c/[companySlug]/p/[productCode]/page.tsx`：产品详情服务端入口。
+- `[companySlug]/browse/**` 与 `proxy.ts`：仅用于旧中文浏览路径兼容，并重定向到正式路径。
 - `admin/page.tsx`：平台后台服务端入口，负责平台管理员鉴权和读取用户列表。
 - `admin/login/page.tsx`：后台登录页入口。
 - `api/**/route.ts`：服务端 API。
@@ -159,16 +160,15 @@ RLS 策略：
 
 公开产品册：
 
-1. 用户访问 `/[companySlug]/浏览页`。
-2. `proxy.ts` 重写到 `src/app/[companySlug]/browse/page.tsx`。
-3. `src/app/[companySlug]/browse/page.tsx` 调用 `getPublicCatalog(slug)`。
-4. `getPublicCatalog` 读取企业、分类、active 产品。
-5. 如果企业未开通或过期，页面只显示不可访问提示。
-6. 如果可访问，把必要数据传给 `PublicCatalog` 做搜索和筛选。
+1. 用户访问 `/c/[companySlug]`。
+2. `src/app/c/[companySlug]/page.tsx` 调用 `getPublicCatalog(slug)`。
+3. `getPublicCatalog` 读取企业、分类、active 产品。
+4. 如果企业未开通或过期，页面只显示不可访问提示。
+5. 如果可访问，把必要数据传给 `PublicCatalog` 做搜索和筛选。
 
 产品详情：
 
-1. 用户访问 `/[companySlug]/浏览页/p/[productCode]`。
+1. 用户访问 `/c/[companySlug]/p/[productCode]`。
 2. `getProductDetail` 复用公开产品册规则。
 3. 找不到产品或企业不可访问时走 `notFound()`。
 
@@ -182,7 +182,7 @@ RLS 策略：
 图片上传：
 
 1. 后台选择产品图。
-2. `ProductUploadWorkspace` 在浏览器端压缩为 JPEG，长边最大 1600。
+2. `ProductUploadWorkspace` 在浏览器端压缩为 WebP，长边最大 960，并显示上传进度。
 3. 调用 `/api/sign-upload` 获取 R2 signed URL。
 4. 浏览器 PUT 到 R2。
 5. 调用 `/api/admin/products` 写入产品 metadata。
@@ -202,7 +202,7 @@ RLS 策略：
 - 手机端优先。
 - 默认 390x844 左右视口下，忽略顶部搜索/筛选区域后，首屏至少能看到 6 个产品。
 - 产品卡采用双列紧凑布局，固定图片比例，名称最多两行，规格单行省略。
-- 有单价显示价格，无单价显示“询价”。
+- 有单价显示价格，无单价时价格区域留空。
 - 搜索必须匹配产品编号、名称、规格、描述、分类名、分类代码。
 - 不出现购物车、下单、支付、收款码入口。
 
@@ -232,6 +232,7 @@ RLS 策略：
 - 服务端查询使用 `React.cache()` 去重。
 - 长列表优先限制数量或分页；当前公开产品上限为 80，后台产品列表上限为 200。
 - 图片使用 `next/image`，并设置 `sizes`。
+- R2 产品图直接由公开图片域名返回，避免额外图片代理；上传对象设置长期不可变缓存。
 - 外部图片必须通过 `SafeImage` 或等效兜底处理，不能让访客看到永久空白块。
 - Supabase 查询在本地可超时回退到演示数据，但写入 API 不能用演示数据假成功；生产环境默认不回退到演示数据。
 - 后台重交互状态应使用本地 state，避免每个输入都请求服务端。
@@ -282,8 +283,8 @@ RLS 策略：
 完成修改后：
 
 1. 运行 `npm run build`。
-2. 验证 `/c001/浏览页`。
-3. 验证 `/c001/浏览页/p/TC-001` 或任意产品详情。
+2. 验证 `/c/c001`。
+3. 验证 `/c/c001/p/TC-001` 或任意产品详情。
 4. 验证 `/c001`、`/c001/upload`、`/admin/login` 和 `/admin`。
 5. 在 `/c001` 批量选择产品并生成出货单，验证当前页合计变化和下载按钮可见。
 6. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
@@ -324,9 +325,9 @@ RLS 策略：
 最近验证通过的基线：
 
 - `npm run build` 通过。
-- 手机 390x844 视口下，`/c001/浏览页` 默认首屏可见 6 个产品。
+- 手机 390x844 视口下，`/c/c001` 默认首屏可见 6 个产品。
 - 搜索“陶瓷”返回 2 个产品。
-- `/c001/浏览页/p/TC-001` 产品详情正常展示。
+- `/c/c001/p/TC-001` 产品详情正常展示。
 - `/admin/login` 使用本地默认密码 `admin123` 可进入平台用户管理，不显示产品和出货单。
 - `/c001` 在本地无 Supabase 演示环境下使用 `demo/demo123` 可进入企业产品列表后台。
 - `/c001/upload` 在同一登录态下可进入独立产品上传页。

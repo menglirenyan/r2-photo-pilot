@@ -46,14 +46,14 @@ export const sampleCategories: Category[] = [
 ];
 
 const images = [
-  "https://images.unsplash.com/photo-1581093458791-9d15482442f6?auto=format&fit=crop&w=640&q=75",
-  "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?auto=format&fit=crop&w=640&q=75",
-  "https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=640&q=75",
-  "https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?auto=format&fit=crop&w=640&q=75",
-  "https://images.unsplash.com/photo-1616401784845-180882ba9ba8?auto=format&fit=crop&w=640&q=75",
-  "https://images.unsplash.com/photo-1604176424472-9d3d2d34e3a7?auto=format&fit=crop&w=640&q=75",
-  "https://images.unsplash.com/photo-1560393464-5c69a73c5770?auto=format&fit=crop&w=640&q=75",
-  "https://images.unsplash.com/photo-1609205807107-e8ec2120f9de?auto=format&fit=crop&w=640&q=75"
+  "/demo-products/hardware.svg",
+  "/demo-products/hardware.svg",
+  "/demo-products/packaging.svg",
+  "/demo-products/packaging.svg",
+  "/demo-products/ceramics.svg",
+  "/demo-products/ceramics.svg",
+  "/demo-products/hardware.svg",
+  "/demo-products/packaging.svg"
 ];
 
 export const sampleProducts: Product[] = [
@@ -80,9 +80,9 @@ export const sampleProducts: Product[] = [
     unit_price: unitPrice as number | null,
     description: String(description),
     image_url: images[index],
-    object_key: `sample/${String(productCode).toLowerCase()}.jpg`,
+    object_key: `sample/${String(productCode).toLowerCase()}.svg`,
     image_width: 640,
-    image_height: 480,
+    image_height: 460,
     status: "active",
     sort_order: index + 1,
     created_at: now,
