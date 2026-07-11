@@ -12,6 +12,7 @@ All future changes must preserve these architectural decisions unless the user e
 - Preserve mobile-first public catalog density: at least 6 products visible on a 390x844 mobile viewport in the default catalog view.
 - Preserve category-scoped product numbering, such as `HW-001`.
 - Update `supabase/schema.sql`, `src/types.ts`, API handlers, and UI together when changing data shape.
+- Record every development change in `DEVELOPMENT_LOG.md` before committing.
 - Run `npm run build` after code changes.
 
 Use `DEVELOPMENT_FRAMEWORK.md` as the source of truth for file ownership, data flow, security boundaries, UI rules, and verification requirements.

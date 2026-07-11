@@ -90,6 +90,7 @@ function uploadToR2(signedUrl: string, file: File, onProgress: (percent: number)
 export function ProductUploadWorkspace({ company, categories, configured }: ProductUploadWorkspaceProps) {
   const [categoryList, setCategoryList] = useState(categories);
   const [categoryInput, setCategoryInput] = useState("");
+  const [categoryCode, setCategoryCode] = useState("");
   const [productForm, setProductForm] = useState<ProductForm>(initialProductForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
@@ -112,11 +113,15 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
 
     const name = categoryInput.trim();
     if (!name) throw new Error("请选择或输入分类。");
+    const code = categoryCode.trim().toUpperCase();
+    if (!/^[A-Z0-9]{1,12}$/.test(code)) {
+      throw new Error("新分类需填写 1-12 位英文或数字代码，例如 HW。");
+    }
 
     const response = await fetch("/api/admin/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company_id: company.id, name })
+      body: JSON.stringify({ company_id: company.id, name, code })
     });
 
     if (!response.ok) {
@@ -127,6 +132,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
     setCategoryList((current) => [...current, payload.category]);
     setProductForm((current) => ({ ...current, category_id: payload.category.id }));
     setCategoryInput(payload.category.name);
+    setCategoryCode(payload.category.code);
     return payload.category;
   }
 
@@ -232,8 +238,10 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
                   value={categoryInput}
                   onChange={(event) => {
                     const value = event.target.value;
+                    const existingCategory = findCategory(value);
                     setCategoryInput(value);
-                    setProductForm({ ...productForm, category_id: findCategory(value)?.id || "" });
+                    setCategoryCode(existingCategory?.code || "");
+                    setProductForm({ ...productForm, category_id: existingCategory?.id || "" });
                   }}
                 />
                 <datalist id="product-category-options">
@@ -241,6 +249,19 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
                     <option key={category.id} label={category.code} value={category.name} />
                   ))}
                 </datalist>
+              </label>
+              <label>
+                分类代码
+                <input
+                  autoCapitalize="characters"
+                  maxLength={12}
+                  pattern="[A-Za-z0-9]{1,12}"
+                  placeholder="如 HW，产品编号将为 HW-001"
+                  readOnly={Boolean(productForm.category_id)}
+                  required
+                  value={categoryCode}
+                  onChange={(event) => setCategoryCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                />
               </label>
               <label>
                 名称

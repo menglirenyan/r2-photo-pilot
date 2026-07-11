@@ -164,6 +164,10 @@ export function CompanyProductListWorkspace({
             <p>{company.name}</p>
           </div>
           <div className="admin-top-actions">
+            <button className="primary-action" data-testid="quotation-top-open" onClick={openQuotation} type="button">
+              <FileText size={16} />
+              生成报价单
+            </button>
             <a className="primary-action" href={`/${company.slug}/upload`}>
               <ImagePlus size={16} />
               上传产品

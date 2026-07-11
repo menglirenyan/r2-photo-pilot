@@ -292,12 +292,13 @@ RLS 策略：
 
 完成修改后：
 
-1. 运行 `npm run build`。
-2. 验证 `/c/c001`。
-3. 验证 `/c/c001/p/TC-001` 或任意产品详情。
-4. 验证 `/c001`、`/c001/upload`、`/admin/login` 和 `/admin`。
-5. 在 `/c001` 批量选择产品并生成报价单，验证编辑、待议单价、合计、草稿恢复和 PNG/XLSX 下载。
-6. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
+1. 将本次需求、实现和验证结果追加到 `DEVELOPMENT_LOG.md`。
+2. 运行 `npm run build`。
+3. 验证 `/c/c001`。
+4. 验证 `/c/c001/p/TC-001` 或任意产品详情。
+5. 验证 `/c001`、`/c001/upload`、`/admin/login` 和 `/admin`。
+6. 在 `/c001` 批量选择产品并生成报价单，验证编辑、待议单价、合计、草稿恢复和 PNG/XLSX 下载。
+7. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
 
 ## 11. 常见改动指南
 

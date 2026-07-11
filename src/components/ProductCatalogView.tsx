@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, ReactNode, useMemo, useState } from "react";
+import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { formatPrice } from "@/lib/format";
@@ -55,10 +55,21 @@ export function ProductCatalogView({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const Wrapper: "main" | "section" = asMain ? "main" : "section";
 
+  const availableCategories = useMemo(() => {
+    const categoryIds = new Set(products.map((product) => product.category_id));
+    return categories.filter((category) => categoryIds.has(category.id));
+  }, [categories, products]);
+
   const selectedCategory = useMemo(
-    () => categories.find((category) => category.id === categoryId) ?? null,
-    [categories, categoryId]
+    () => availableCategories.find((category) => category.id === categoryId) ?? null,
+    [availableCategories, categoryId]
   );
+
+  useEffect(() => {
+    if (categoryId !== "all" && !availableCategories.some((category) => category.id === categoryId)) {
+      setCategoryId("all");
+    }
+  }, [availableCategories, categoryId]);
 
   const visibleProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -120,7 +131,7 @@ export function ProductCatalogView({
           >
             全部
           </button>
-          {categories.map((category) => (
+          {availableCategories.map((category) => (
             <button
               className={categoryId === category.id ? "active" : ""}
               aria-pressed={categoryId === category.id}

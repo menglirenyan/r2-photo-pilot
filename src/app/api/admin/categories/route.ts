@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     const usedCodes = new Set((existingCategories ?? []).map((category) => category.code));
     for (let index = 1; index <= 9999; index += 1) {
-      const candidate = `C${String(index).padStart(3, "0")}`;
+      const candidate = `CAT${String(index).padStart(3, "0")}`;
       if (!usedCodes.has(candidate)) {
         code = candidate;
         break;
