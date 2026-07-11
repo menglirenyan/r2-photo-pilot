@@ -56,7 +56,8 @@ export function LoginForm({
         <div className="login-icon">
           <LockKeyhole size={24} />
         </div>
-        <h1>后台登录</h1>
+        <span className="login-eyebrow">货物产品册 · {companySlug ? "企业工作台" : "平台运营"}</span>
+        <h1>{companySlug ? "企业后台登录" : "平台管理员登录"}</h1>
         <p>{description}</p>
         <label>
           账号
@@ -78,7 +79,7 @@ export function LoginForm({
         </label>
         {message ? <div className="form-error" role="alert">{message}</div> : null}
         <button disabled={isSubmitting || isPending || !username.trim() || !password} type="submit">
-          {isSubmitting || isPending ? "正在验证..." : "进入后台"}
+          {isSubmitting || isPending ? "正在验证..." : companySlug ? "进入企业后台" : "进入平台后台"}
         </button>
       </form>
     </main>

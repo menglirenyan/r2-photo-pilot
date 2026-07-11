@@ -1,8 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, ImagePlus, LogOut, PackagePlus, Save } from "lucide-react";
+import { ArrowLeft, Eye, ImagePlus, PackagePlus, Save } from "lucide-react";
+import { CompanyAdminNavigation } from "@/components/CompanyAdminNavigation";
 import type { Category, Company, Product } from "@/types";
 
 type ProductForm = {
@@ -88,18 +88,12 @@ function uploadToR2(signedUrl: string, file: File, onProgress: (percent: number)
 }
 
 export function ProductUploadWorkspace({ company, categories, configured }: ProductUploadWorkspaceProps) {
-  const router = useRouter();
   const [categoryList, setCategoryList] = useState(categories);
   const [categoryInput, setCategoryInput] = useState("");
   const [productForm, setProductForm] = useState<ProductForm>(initialProductForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  async function logout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.push(`/${company.slug}`);
-  }
 
   function findCategory(value: string) {
     const normalized = value.trim().toLowerCase();
@@ -198,25 +192,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
 
   return (
     <main className="admin-shell">
-      <aside className="admin-sidebar">
-        <div className="admin-brand">
-          <span>货</span>
-          <div>
-            <strong>货物产品册</strong>
-            <small>上传产品</small>
-          </div>
-        </div>
-        <nav>
-          <a href={`/${company.slug}`}>产品</a>
-          <a className="active" href={`/${company.slug}/upload`}>
-            上传产品
-          </a>
-        </nav>
-        <button className="sidebar-button" onClick={logout} type="button">
-          <LogOut size={16} />
-          退出
-        </button>
-      </aside>
+      <CompanyAdminNavigation active="upload" company={company} />
 
       <section className="admin-main">
         <header className="admin-top">

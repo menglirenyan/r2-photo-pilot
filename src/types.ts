@@ -110,3 +110,35 @@ export type ShipmentDraftItem = {
   unit_price: number;
   quantity: number;
 };
+
+export type QuotationDraftItem = {
+  product_id: string;
+  product_code: string;
+  image_url: string;
+  name: string;
+  specification: string;
+  quantity: string;
+  unit_price: string;
+};
+
+export type QuotationMeta = {
+  title: string;
+  customer_name: string;
+  note: string;
+};
+
+export type QuotationCachePayload = {
+  company: Pick<Company, "id" | "name" | "slug">;
+  created_at: number;
+  expires_at: number;
+  meta: QuotationMeta;
+  items: QuotationDraftItem[];
+};
+
+export type QuotationExportRequest = {
+  company_slug: string;
+  title: string;
+  customer_name: string;
+  note: string;
+  items: Array<Pick<QuotationDraftItem, "product_id" | "name" | "specification" | "quantity" | "unit_price">>;
+};

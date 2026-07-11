@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  outputFileTracingIncludes: {
+    "/api/admin/quotations/*": ["./src/assets/fonts/NotoSansCJKsc-Regular.otf"]
+  },
   images: {
     remotePatterns: [
       {

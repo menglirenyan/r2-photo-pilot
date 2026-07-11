@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "货物产品册",
-  description: "面向企业的多租户产品图片册与出货单后台。"
+  description: "面向企业的多租户产品图片册与临时报价单后台。"
 };
 
 export default function RootLayout({

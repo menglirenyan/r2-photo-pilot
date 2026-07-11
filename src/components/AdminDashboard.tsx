@@ -98,7 +98,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
   }
 
   async function deleteCompany(company: Company) {
-    const confirmed = window.confirm(`确认删除“${company.name}”？该用户下的分类、产品和出货单也会被删除。`);
+    const confirmed = window.confirm(`确认删除“${company.name}”？该用户下的分类、产品和历史单据也会被删除。`);
     if (!confirmed) return;
 
     setMessage("");

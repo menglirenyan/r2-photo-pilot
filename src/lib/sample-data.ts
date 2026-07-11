@@ -99,7 +99,7 @@ export const sampleShipmentSheets: ShipmentSheet[] = [
   {
     id: "00000000-0000-0000-0000-000000000301",
     company_id: sampleCompany.id,
-    title: "样品出货单",
+    title: "样品历史单据",
     customer_name: "演示客户",
     note: "本地无 Supabase 环境时显示的示例记录。",
     total_price: 28.4,
