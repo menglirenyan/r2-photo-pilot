@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { ProductCardContent, ProductCatalogView } from "@/components/ProductCatalogView";
-import type { Category, CatalogProduct, Company } from "@/types";
+import type { CatalogCategory, CatalogProduct, Company } from "@/types";
 
 type PublicCatalogProps = {
   company: Pick<Company, "name" | "slug" | "paid_until">;
-  categories: Category[];
+  categories: CatalogCategory[];
   products: CatalogProduct[];
 };
 

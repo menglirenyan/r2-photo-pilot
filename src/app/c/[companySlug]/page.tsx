@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { PublicCatalog } from "@/components/PublicCatalog";
 import { getPublicCatalog } from "@/lib/data";
 
+export const revalidate = 300;
+export const dynamic = "force-static";
+
 type PageProps = {
   params: Promise<{ companySlug: string }>;
 };

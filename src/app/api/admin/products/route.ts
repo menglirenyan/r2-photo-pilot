@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cleanText, databaseError, jsonError, readJsonBody, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import { parseMoney } from "@/lib/format";
+import { invalidatePublicCatalog, readCompanySlugForInvalidation } from "@/lib/public-cache";
 import { getR2Config } from "@/lib/r2";
 
 export async function POST(request: Request) {
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
 
   const accessError = await requireCompanyAccess(supabase, session, companyId);
   if (accessError) return accessError;
+  const companySlug = await readCompanySlugForInvalidation(supabase, companyId);
 
   const { data: category, error: categoryError } = await supabase
     .from("categories")
@@ -95,7 +97,10 @@ export async function POST(request: Request) {
       .select("*,categories(id,name,code)")
       .single();
 
-    if (!error) return NextResponse.json({ product: data }, { status: 201 });
+    if (!error) {
+      invalidatePublicCatalog({ companyId, slug: companySlug, productCodes: [data.product_code] });
+      return NextResponse.json({ product: data }, { status: 201 });
+    }
     if (error.code !== "23505" || attempt === 2) return databaseError(error, "产品编号冲突，请重试。");
   }
 

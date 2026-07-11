@@ -4,7 +4,7 @@ import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { formatPrice } from "@/lib/format";
-import type { CatalogProduct, Category, Company, ProductStatus } from "@/types";
+import type { CatalogCategory, CatalogProduct, Company, ProductStatus } from "@/types";
 
 export type CatalogListProduct = CatalogProduct & {
   status?: ProductStatus;
@@ -12,7 +12,7 @@ export type CatalogListProduct = CatalogProduct & {
 
 type ProductCatalogViewProps = {
   asMain?: boolean;
-  categories: Category[];
+  categories: CatalogCategory[];
   company: Pick<Company, "name" | "slug">;
   countNote?: string;
   emptyText?: string;

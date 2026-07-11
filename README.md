@@ -23,6 +23,8 @@
 - 后台使用 `ADMIN_USERNAME + ADMIN_PASSWORD + SESSION_SECRET` 生成 HTTP-only session cookie。
 - 图片上传继续走 R2 signed URL 直传，后台会先在浏览器端压缩为最长边 960px 的 WebP，并显示上传进度。
 - 产品图片直接从 `R2_PUBLIC_BASE_URL` 加载并使用长期缓存；国内用户应优先给该地址绑定自有图片域名，避免使用演示用外部图库。
+- 公开产品册和产品详情使用 300 秒 ISR 与租户级数据缓存；后台成功写入企业、分类或产品后会立即失效对应缓存。
+- 正式图片域名使用 `https://img.huowu.org`，`r2.dev` 仅作为迁移回滚兼容地址。
 - 报价单字段为：产品图、编号、名称、规格、单价、数量、小计和备注，并自动计算总价；草稿只存浏览器两小时，可下载真实 PNG 或 XLSX，不写入数据库。
 
 ## 本地运行
@@ -86,6 +88,8 @@ supabase/schema.sql
 
 - 已执行 `supabase/schema.sql`。
 - Vercel 已配置 Supabase、R2、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`SESSION_SECRET`。
+- Vercel Function 区域与东京 Supabase 对齐为 `hnd1`，配置以根目录 `vercel.json` 为准。
+- R2 自定义域名、CORS、长期缓存头和 Cloudflare Cache Rule 已验证。
 - 未设置 `ALLOW_DEMO_FALLBACK=true`，除非这是一个明确标注的临时演示环境。
 
 ## 付费策略

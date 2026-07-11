@@ -6,6 +6,9 @@ import { SafeImage } from "@/components/SafeImage";
 import { getProductDetail } from "@/lib/data";
 import { formatPrice } from "@/lib/format";
 
+export const revalidate = 300;
+export const dynamic = "force-static";
+
 type PageProps = {
   params: Promise<{ companySlug: string; productCode: string }>;
 };
@@ -15,7 +18,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const detail = await getProductDetail(companySlug, productCode);
 
   return {
-    title: detail?.product ? `${detail.product.name} · ${detail.catalog.company.name}` : "产品不存在",
+    title: detail?.product ? `${detail.product.name} · ${detail.company.name}` : "产品不存在",
     description: detail?.product?.description || detail?.product?.specification || "产品详情"
   };
 }
@@ -26,17 +29,16 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   if (!detail || !detail.product) notFound();
 
-  const { catalog, product } = detail;
-  const category = catalog.categories.find((item) => item.id === product.category_id);
+  const { company, product } = detail;
 
   return (
     <main className="detail-page">
       <header className="detail-topbar">
-        <Link className="back-link" href={`/c/${catalog.company.slug}`}>
+        <Link className="back-link" href={`/c/${company.slug}`}>
           <ArrowLeft size={17} />
           返回产品册
         </Link>
-        <span>{catalog.company.name}</span>
+        <span>{company.name}</span>
       </header>
       <section className="detail-layout">
         <div className="detail-image">
@@ -48,7 +50,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           <dl>
             <div>
               <dt><Boxes size={15} />分类</dt>
-              <dd>{category?.name || "未分类"}</dd>
+              <dd>{product.categories?.name || "未分类"}</dd>
             </div>
             <div>
               <dt><Ruler size={15} />规格</dt>

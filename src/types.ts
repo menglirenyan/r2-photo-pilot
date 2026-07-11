@@ -45,6 +45,10 @@ export type Product = {
   categories?: Pick<Category, "id" | "name" | "code"> | null;
 };
 
+export type CatalogCategory = Pick<Category, "id" | "name" | "code" | "sort_order">;
+
+export type PublicCompany = Pick<Company, "id" | "name" | "slug" | "status" | "paid_until">;
+
 export type ShipmentSheet = {
   id: string;
   company_id: string;
@@ -77,13 +81,18 @@ export type CatalogProduct = Pick<
   | "unit_price"
   | "description"
   | "image_url"
-  | "image_width"
-  | "image_height"
 >;
 
+export type PublicProductDetail = Pick<
+  Product,
+  "id" | "category_id" | "product_code" | "name" | "specification" | "unit_price" | "description" | "image_url"
+> & {
+  categories?: Pick<Category, "id" | "name" | "code"> | null;
+};
+
 export type PublicCatalog = {
-  company: Pick<Company, "id" | "name" | "slug" | "status" | "paid_until">;
-  categories: Category[];
+  company: PublicCompany;
+  categories: CatalogCategory[];
   products: CatalogProduct[];
   isAccessible: boolean;
 };

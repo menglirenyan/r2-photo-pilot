@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cleanText, databaseError, jsonError, readJsonBody, requirePlatformAdmin } from "@/lib/api";
 import { hashPassword } from "@/lib/auth";
+import { invalidatePublicCatalog } from "@/lib/public-cache";
 import type { CompanyStatus } from "@/types";
 
 const companySafeSelect =
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return databaseError(error, "登录账号已存在，请更换后重试。");
+  invalidatePublicCatalog({ companyId: data.id, slug: data.slug, companyChanged: true });
   return NextResponse.json({ company: data }, { status: 201 });
 }
 
@@ -97,6 +99,12 @@ export async function PATCH(request: Request) {
   const { data, error } = await supabase.from("companies").update(patch).eq("id", body.id).select(companySafeSelect).single();
 
   if (error) return databaseError(error, "登录账号已存在，请更换后重试。");
+  invalidatePublicCatalog({
+    companyId: data.id,
+    slug: data.slug,
+    companyChanged: true,
+    allProductDetails: true
+  });
   return NextResponse.json({ company: data });
 }
 
@@ -114,10 +122,17 @@ export async function DELETE(request: Request) {
     .from("companies")
     .delete()
     .eq("id", companyId)
-    .select("id")
+    .select("id,slug")
     .maybeSingle();
   if (companyError) return databaseError(companyError);
   if (!data) return jsonError("用户不存在。", 404);
+
+  invalidatePublicCatalog({
+    companyId,
+    slug: data.slug,
+    companyChanged: true,
+    allProductDetails: true
+  });
 
   return NextResponse.json({ ok: true, id: companyId });
 }

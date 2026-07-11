@@ -117,6 +117,9 @@ create index if not exists categories_company_sort_idx
 create index if not exists products_company_category_status_sort_idx
   on public.products (company_id, category_id, status, sort_order, created_at desc);
 
+create index if not exists products_public_catalog_idx
+  on public.products (company_id, status, sort_order, created_at desc);
+
 create index if not exists products_company_code_idx
   on public.products (company_id, product_code);
 

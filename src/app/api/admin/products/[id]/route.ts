@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cleanText, databaseError, jsonError, readJsonBody, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import { parseMoney } from "@/lib/format";
+import { invalidatePublicCatalog, readCompanySlugForInvalidation } from "@/lib/public-cache";
 import type { ProductStatus } from "@/types";
 
 type Params = {
@@ -44,7 +45,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const { data: existingProduct, error: existingError } = await supabase
     .from("products")
-    .select("id,company_id")
+    .select("id,company_id,product_code")
     .eq("id", id)
     .single();
 
@@ -52,10 +53,16 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const accessError = await requireCompanyAccess(supabase, session, existingProduct.company_id);
   if (accessError) return accessError;
+  const companySlug = await readCompanySlugForInvalidation(supabase, existingProduct.company_id);
 
   const { data, error } = await supabase.from("products").update(patch).eq("id", id).select("*,categories(id,name,code)").single();
 
   if (error) return databaseError(error);
+  invalidatePublicCatalog({
+    companyId: existingProduct.company_id,
+    slug: companySlug,
+    productCodes: [existingProduct.product_code]
+  });
   return NextResponse.json({ product: data });
 }
 
@@ -66,7 +73,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   const { id } = await params;
   const { data: existingProduct, error: existingError } = await supabase
     .from("products")
-    .select("id,company_id")
+    .select("id,company_id,product_code")
     .eq("id", id)
     .single();
 
@@ -74,9 +81,16 @@ export async function DELETE(_request: Request, { params }: Params) {
 
   const accessError = await requireCompanyAccess(supabase, session, existingProduct.company_id);
   if (accessError) return accessError;
+  const companySlug = await readCompanySlugForInvalidation(supabase, existingProduct.company_id);
 
   const { error } = await supabase.from("products").delete().eq("id", id);
   if (error) return databaseError(error);
+
+  invalidatePublicCatalog({
+    companyId: existingProduct.company_id,
+    slug: companySlug,
+    productCodes: [existingProduct.product_code]
+  });
 
   return NextResponse.json({ ok: true });
 }

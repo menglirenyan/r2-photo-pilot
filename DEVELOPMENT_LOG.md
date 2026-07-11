@@ -25,3 +25,36 @@
 ### Git
 
 - 提交说明：`Fix category numbering and admin navigation`
+
+## 2026-07-11：中国大陆访问性能深度优化
+
+### 需求
+
+- 减少公开产品册从中国大陆访问时的跨境数据库请求和动态渲染开销。
+- 将 Vercel Function、Supabase 与 R2 图片链路迁往或对齐亚太区域，并为图片启用正式 CDN 域名。
+- 后台写入成功后立即刷新公开缓存，同时保持后台、登录和报价单数据不进入公共缓存。
+
+### 实现
+
+- 将公开企业、产品册列表和单产品详情拆成独立最小查询；详情页不再读取完整产品列表。
+- 使用 `React.cache()` 做请求内去重，并用 Next.js Data Cache 按企业标签做 300 秒跨请求缓存。
+- 两条公开路由启用 `force-static` 和 300 秒 ISR；企业、分类、产品写接口成功后精确失效标签与路径。
+- 公开类型和演示回退均显式裁剪，只向客户端传递搜索、筛选、卡片和详情所需字段。
+- 新增公开产品列表组合索引、`img.huowu.org` 图片白名单和 Vercel 东京 `hnd1` 区域配置；保留旧 `r2.dev` 域名用于七天回滚。
+
+### 验证
+
+- TypeScript `--noEmit` 检查通过，Next.js 16.2.10 生产构建通过；公开产品册和详情路由由动态渲染转为可重验证静态内容。
+- 本地生产构建首次访问产品册返回 `x-nextjs-cache: MISS`，第二次返回 `HIT`，并带 `s-maxage=300`。
+- 390x844 视口下前 6 个产品进入首屏；分类按钮正常展开，搜索“陶瓷”只返回 `TC-001`、`TC-002`，`TC-001` 详情正常。
+- 未登录调用产品写接口返回 401，后台鉴权边界保持不变。
+
+### 线上迁移
+
+- 现有 R2 Bucket `r2-photo-pilot` 已确认位于 `APAC`，共 35 个对象、11,990,198 字节；按条件跳过新 Bucket 和对象复制。
+- 现有 Supabase 基线为：企业 1、分类 3、产品 1、出货单 0、出货单明细 0；五次顺序计数共耗时约 6.2 秒。
+- 源 Supabase 项目 `wnqotkkdmvablpfqrthb` 确认为新加坡 `ap-southeast-1`；新建东京项目 `uqbfjdotlrdknwhaxcjl`，区域为 `ap-northeast-1`。
+- 在东京项目执行当前 Schema，并按外键顺序迁移五张业务表；迁移后计数为企业 1、分类 3、产品 1、出货单 0、出货单明细 0，产品 UUID、编号、密码哈希、时间戳与对象键均保留。
+- `img.huowu.org` 已绑定现有 APAC Bucket；35 个对象均补齐 `public, max-age=31536000, immutable`，对象数量和总字节不变，抽样 SHA-256 一致。
+- 目标产品图片地址已按 `object_key` 切换到 `img.huowu.org`；Cache Rule 生效后同一图片首次请求为 `MISS`、第二次为 `HIT`。
+- Vercel Production 环境变量已切换为东京 Supabase 和 `img.huowu.org`；待 Git 推送触发东京 `hnd1` 部署后执行主站橙云/DNS-only A/B 与线上回归。

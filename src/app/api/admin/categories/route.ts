@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cleanText, databaseError, jsonError, readJsonBody, requireAdmin, requireCompanyAccess } from "@/lib/api";
+import { invalidatePublicCatalog, readCompanySlugForInvalidation } from "@/lib/public-cache";
 
 export async function POST(request: Request) {
   const { response, supabase, session } = await requireAdmin();
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
 
   const accessError = await requireCompanyAccess(supabase, session, companyId);
   if (accessError) return accessError;
+  const companySlug = await readCompanySlugForInvalidation(supabase, companyId);
 
   if (!code) {
     const { data: existingCategories, error: codeError } = await supabase
@@ -58,5 +60,6 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return databaseError(error, "分类名称或代码已存在。");
+  invalidatePublicCatalog({ companyId, slug: companySlug });
   return NextResponse.json({ category: data }, { status: 201 });
 }
