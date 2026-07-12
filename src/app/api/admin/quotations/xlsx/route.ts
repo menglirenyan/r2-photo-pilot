@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
   try {
     const workbook = await buildQuotationXlsx(result.context);
-    const encoded = encodeURIComponent(`${result.context.company.slug}-报价单.xlsx`);
+    const encoded = encodeURIComponent("报价单.xlsx");
     return new NextResponse(new Uint8Array(workbook), {
       headers: {
         "Cache-Control": "private, no-store",

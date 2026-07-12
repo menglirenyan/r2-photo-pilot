@@ -9,15 +9,27 @@ export function parseMoney(value: unknown) {
   return Number.isFinite(parsed) && parsed >= 0 ? Number(parsed.toFixed(2)) : null;
 }
 
-export function isCompanyAccessible(status: string, paidUntil: string | null) {
+const beijingDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Shanghai",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+});
+
+function beijingDateKey(now: Date) {
+  const parts = beijingDateFormatter.formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return `${year}-${month}-${day}`;
+}
+
+export function isCompanyAccessible(status: string, paidUntil: string | null, now = new Date()) {
   if (status !== "active") return false;
   if (!paidUntil) return true;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const expiry = new Date(`${paidUntil}T23:59:59`);
-
-  return expiry >= today;
+  return paidUntil >= beijingDateKey(now);
 }
 
 export function compactDate(value: string | null) {

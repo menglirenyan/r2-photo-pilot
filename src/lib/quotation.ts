@@ -36,7 +36,7 @@ export function normalizeQuotationRequest(body: QuotationExportRequest | null):
   if (!body || !Array.isArray(body.items)) return { value: null, error: "请求格式不正确。" };
 
   const companySlug = text(body.company_slug, 80).toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(companySlug)) return { value: null, error: "企业编号不正确。" };
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(companySlug)) return { value: null, error: "企业访问标识不正确。" };
   if (body.items.length === 0) return { value: null, error: "请至少选择一个产品。" };
   if (body.items.length > 80) return { value: null, error: "每份报价单最多包含 80 个产品。" };
 

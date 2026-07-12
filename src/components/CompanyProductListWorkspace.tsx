@@ -14,12 +14,15 @@ import {
 import { CompanyAdminNavigation } from "@/components/CompanyAdminNavigation";
 import { ProductCardContent, ProductCatalogView } from "@/components/ProductCatalogView";
 import { QuotationComposer } from "@/components/QuotationComposer";
-import type { Category, Company, Product, ProductStatus } from "@/types";
+import { SafeImage } from "@/components/SafeImage";
+import { compressProductImage, uploadProductImageToR2 } from "@/lib/client-image-upload";
+import type { Category, Company, Product, ProductStatus, SignUploadResponse } from "@/types";
 
 type CompanyProductListWorkspaceProps = {
   categories: Category[];
   company: Company;
   configured: boolean;
+  isPlatformAdmin?: boolean;
   products: Product[];
 };
 
@@ -50,12 +53,17 @@ export function CompanyProductListWorkspace({
   categories,
   company,
   configured,
+  isPlatformAdmin = false,
   products
 }: CompanyProductListWorkspaceProps) {
   const [productList, setProductList] = useState(products);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState("");
   const [editForm, setEditForm] = useState<ProductEditForm | null>(null);
+  const [replacementFile, setReplacementFile] = useState<File | null>(null);
+  const [replacementPreviewUrl, setReplacementPreviewUrl] = useState("");
+  const [editUploadProgress, setEditUploadProgress] = useState<number | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [quotationSeed, setQuotationSeed] = useState<{ nonce: number; products: Product[] } | null>(null);
   const [hasQuotationDraft, setHasQuotationDraft] = useState(false);
@@ -71,6 +79,17 @@ export function CompanyProductListWorkspace({
       setQuotationOpen(true);
     }
   }, [company.slug]);
+
+  useEffect(() => {
+    if (!replacementFile) {
+      setReplacementPreviewUrl("");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(replacementFile);
+    setReplacementPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [replacementFile]);
 
   function toggleProductSelection(productId: string) {
     setMessage("");
@@ -88,32 +107,87 @@ export function CompanyProductListWorkspace({
     const product = selectedProducts[0];
     setEditingId(product.id);
     setEditForm(toEditForm(product));
+    setReplacementFile(null);
+    setEditUploadProgress(null);
     setMessage("");
+  }
+
+  function closeProductEdit() {
+    if (isSavingEdit) return;
+    setEditingId("");
+    setEditForm(null);
+    setReplacementFile(null);
+    setEditUploadProgress(null);
   }
 
   async function saveProductEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editingProduct || !editForm) return;
+    if (!editingProduct || !editForm || isSavingEdit) return;
 
-    const response = await fetch(`/api/admin/products/${editingProduct.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    setIsSavingEdit(true);
+    setEditUploadProgress(null);
+
+    try {
+      const patch: Record<string, unknown> = {
         ...editForm,
         unit_price: editForm.unit_price.trim() === "" ? null : editForm.unit_price
-      })
-    });
+      };
 
-    if (!response.ok) {
-      setMessage(await readError(response));
-      return;
+      if (replacementFile) {
+        setMessage("正在准备新图片...");
+        setEditUploadProgress(0);
+        const compressed = await compressProductImage(replacementFile);
+        const signResponse = await fetch("/api/sign-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyId: editingProduct.company_id,
+            fileName: compressed.file.name,
+            contentType: compressed.file.type,
+            size: compressed.file.size
+          })
+        });
+
+        if (!signResponse.ok) throw new Error(await readError(signResponse));
+        const signed = (await signResponse.json()) as SignUploadResponse;
+
+        await uploadProductImageToR2(signed.signedUrl, compressed.file, (percent) => {
+          setEditUploadProgress(percent);
+          setMessage(`正在上传新图片 ${percent}%`);
+        });
+
+        setEditUploadProgress(100);
+        setMessage("正在保存产品和新图片...");
+        Object.assign(patch, {
+          image_url: signed.publicUrl,
+          object_key: signed.objectKey,
+          image_width: compressed.width,
+          image_height: compressed.height
+        });
+      }
+
+      const response = await fetch(`/api/admin/products/${editingProduct.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch)
+      });
+
+      if (!response.ok) throw new Error(await readError(response));
+
+      const payload = (await response.json()) as { product: Product };
+      setProductList((current) =>
+        current.map((product) => (product.id === payload.product.id ? payload.product : product))
+      );
+      setEditingId("");
+      setEditForm(null);
+      setReplacementFile(null);
+      setEditUploadProgress(null);
+      setMessage(replacementFile ? "产品和图片已更新。" : "产品已更新。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "产品更新失败。");
+    } finally {
+      setIsSavingEdit(false);
     }
-
-    const payload = (await response.json()) as { product: Product };
-    setProductList((current) => current.map((product) => (product.id === payload.product.id ? payload.product : product)));
-    setEditingId("");
-    setEditForm(null);
-    setMessage("产品已更新。");
   }
 
   async function deleteSelectedProducts() {
@@ -137,6 +211,8 @@ export function CompanyProductListWorkspace({
     setSelectedIds([]);
     setEditingId("");
     setEditForm(null);
+    setReplacementFile(null);
+    setEditUploadProgress(null);
     setMessage("已删除所选产品。");
   }
 
@@ -155,7 +231,7 @@ export function CompanyProductListWorkspace({
 
   return (
     <main className="admin-shell">
-      <CompanyAdminNavigation active="products" company={company} />
+      <CompanyAdminNavigation active="products" company={company} isPlatformAdmin={isPlatformAdmin} />
 
       <section className="admin-main">
         <header className="admin-top">
@@ -225,17 +301,65 @@ export function CompanyProductListWorkspace({
                 </span>
                 <button
                   className="ghost-action"
-                  onClick={() => {
-                    setEditingId("");
-                    setEditForm(null);
-                  }}
+                  disabled={isSavingEdit}
+                  onClick={closeProductEdit}
                   type="button"
                 >
                   <X size={15} />
                   关闭
                 </button>
               </div>
-              <form className="product-form" onSubmit={saveProductEdit}>
+              <form aria-busy={isSavingEdit} className="product-form" onSubmit={saveProductEdit}>
+                <div className="product-image-edit-grid">
+                  <section className="product-image-edit-card" aria-label="当前产品图片">
+                    <span>当前图片</span>
+                    <div className="product-image-edit-preview">
+                      <SafeImage
+                        alt={`${editingProduct.name} 当前图片`}
+                        sizes="(max-width: 540px) 100vw, 360px"
+                        src={editingProduct.image_url}
+                      />
+                    </div>
+                  </section>
+                  <section className="product-image-edit-card" aria-label="待替换产品图片">
+                    <span>{replacementPreviewUrl ? "新图片预览" : "替换图片"}</span>
+                    {replacementPreviewUrl ? (
+                      <div className="product-image-edit-preview">
+                        <SafeImage
+                          key={replacementPreviewUrl}
+                          alt={`${editingProduct.name} 新图片预览`}
+                          sizes="(max-width: 540px) 100vw, 360px"
+                          src={replacementPreviewUrl}
+                        />
+                      </div>
+                    ) : (
+                      <div className="product-image-edit-preview product-image-edit-placeholder">
+                        <ImagePlus size={28} />
+                        <span>不选择则保留当前图片</span>
+                      </div>
+                    )}
+                    <label className="upload-field product-image-replace-field">
+                      <ImagePlus size={17} />
+                      <span>{replacementFile ? replacementFile.name : "选择新的产品图片"}</span>
+                      <input
+                        accept="image/jpeg,image/png,image/webp"
+                        data-testid="product-image-replacement"
+                        disabled={isSavingEdit}
+                        onChange={(event) => {
+                          setReplacementFile(event.target.files?.[0] ?? null);
+                          setEditUploadProgress(null);
+                        }}
+                        type="file"
+                      />
+                    </label>
+                  </section>
+                </div>
+                {editUploadProgress !== null ? (
+                  <div className="product-image-upload-progress" role="status">
+                    <span>新图片上传进度 {editUploadProgress}%</span>
+                    <progress max={100} value={editUploadProgress} />
+                  </div>
+                ) : null}
                 <label>
                   名称
                   <input
@@ -278,9 +402,9 @@ export function CompanyProductListWorkspace({
                     onChange={(event) => setEditForm({ ...editForm, description: event.target.value })}
                   />
                 </label>
-                <button className="primary-action" type="submit">
+                <button className="primary-action" disabled={!configured || isSavingEdit} type="submit">
                   <Save size={16} />
-                  保存修改
+                  {isSavingEdit ? "正在保存..." : "保存修改"}
                 </button>
               </form>
             </section>

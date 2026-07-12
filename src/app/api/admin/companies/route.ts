@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cleanText, databaseError, jsonError, readJsonBody, requirePlatformAdmin } from "@/lib/api";
 import { hashPassword } from "@/lib/auth";
+import { createCompanySlug } from "@/lib/company-slug";
 import { invalidatePublicCatalog } from "@/lib/public-cache";
 import type { CompanyStatus } from "@/types";
 
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
     .from("companies")
     .insert({
       name,
+      slug: createCompanySlug(),
       login_username: loginUsername,
       password_hash: hashPassword(loginPassword),
       status: body.status === "active" ? "active" : "inactive",

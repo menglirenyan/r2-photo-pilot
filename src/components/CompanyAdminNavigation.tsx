@@ -2,21 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, FileText, ImagePlus, List, LogOut, Menu, X } from "lucide-react";
+import { BookOpen, FileText, ImagePlus, List, LogOut, Menu, Users, X } from "lucide-react";
 import type { Company } from "@/types";
 
 type CompanyAdminNavigationProps = {
   active: "products" | "upload";
   company: Pick<Company, "name" | "slug">;
+  isPlatformAdmin?: boolean;
 };
 
-export function CompanyAdminNavigation({ active, company }: CompanyAdminNavigationProps) {
+export function CompanyAdminNavigation({ active, company, isPlatformAdmin = false }: CompanyAdminNavigationProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
-    router.push(`/${company.slug}`);
+    router.push(isPlatformAdmin ? "/admin/login" : `/${company.slug}`);
   }
 
   const links = (
@@ -37,6 +38,12 @@ export function CompanyAdminNavigation({ active, company }: CompanyAdminNavigati
         <BookOpen size={17} />
         查看产品册
       </a>
+      {isPlatformAdmin ? (
+        <a href="/admin">
+          <Users size={17} />
+          返回用户管理
+        </a>
+      ) : null}
     </nav>
   );
 
@@ -53,7 +60,7 @@ export function CompanyAdminNavigation({ active, company }: CompanyAdminNavigati
         {links}
         <button className="sidebar-button" onClick={logout} type="button">
           <LogOut size={16} />
-          退出登录
+          {isPlatformAdmin ? "退出平台后台" : "退出登录"}
         </button>
       </aside>
 
@@ -70,7 +77,7 @@ export function CompanyAdminNavigation({ active, company }: CompanyAdminNavigati
             {links}
             <button className="mobile-logout" onClick={logout} type="button">
               <LogOut size={16} />
-              退出登录
+              {isPlatformAdmin ? "退出平台后台" : "退出登录"}
             </button>
           </div>
         ) : null}

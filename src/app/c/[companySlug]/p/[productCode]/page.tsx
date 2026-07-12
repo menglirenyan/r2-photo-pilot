@@ -6,8 +6,7 @@ import { SafeImage } from "@/components/SafeImage";
 import { getProductDetail } from "@/lib/data";
 import { formatPrice } from "@/lib/format";
 
-export const revalidate = 300;
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ companySlug: string; productCode: string }>;
@@ -17,9 +16,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { companySlug, productCode } = await params;
   const detail = await getProductDetail(companySlug, productCode);
 
+  if (!detail?.product) {
+    return {
+      title: "产品不存在",
+      description: "产品详情不存在或当前不可访问。",
+      robots: { index: false, follow: false }
+    };
+  }
+
   return {
-    title: detail?.product ? `${detail.product.name} · ${detail.company.name}` : "产品不存在",
-    description: detail?.product?.description || detail?.product?.specification || "产品详情"
+    title: `${detail.product.name} · ${detail.company.name}`,
+    description: detail.product.description || detail.product.specification || "产品详情"
   };
 }
 

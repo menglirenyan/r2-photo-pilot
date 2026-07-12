@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { PublicCatalog } from "@/components/PublicCatalog";
 import { getPublicCatalog } from "@/lib/data";
 
-export const revalidate = 300;
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ companySlug: string }>;
@@ -14,9 +13,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { companySlug } = await params;
   const catalog = await getPublicCatalog(companySlug);
 
+  if (!catalog) {
+    return {
+      title: "产品册不可访问",
+      description: "企业产品册不存在或当前不可访问。",
+      robots: { index: false, follow: false }
+    };
+  }
+
   return {
-    title: catalog ? `${catalog.company.name}产品册` : "产品册不可访问",
-    description: catalog ? `${catalog.company.name}公开产品信息` : "企业产品册不存在或未开通。"
+    title: `${catalog.company.name}产品册`,
+    description: `${catalog.company.name}公开产品信息`
   };
 }
 
@@ -26,17 +33,11 @@ export default async function CompanyCatalogPage({ params }: PageProps) {
 
   if (!catalog) notFound();
 
-  if (!catalog.isAccessible) {
-    return (
-      <main className="catalog-unavailable">
-        <section>
-          <span className="catalog-mark">{catalog.company.name.slice(0, 1)}</span>
-          <h1>{catalog.company.name}</h1>
-          <p>该企业产品册暂未开通或已到期。</p>
-        </section>
-      </main>
-    );
-  }
-
-  return <PublicCatalog categories={catalog.categories} company={catalog.company} products={catalog.products} />;
+  return (
+    <PublicCatalog
+      categories={catalog.categories}
+      company={{ name: catalog.company.name, slug: catalog.company.slug }}
+      products={catalog.products}
+    />
+  );
 }

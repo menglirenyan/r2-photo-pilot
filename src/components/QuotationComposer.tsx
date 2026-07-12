@@ -39,9 +39,14 @@ function lineAmount(item: QuotationDraftItem) {
   return quantity === null || price === null ? null : quantity * price;
 }
 
-function makeFilename(companySlug: string, extension: "png" | "xlsx") {
+function makeFilename(companyName: string, extension: "png" | "xlsx") {
   const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
-  return `${companySlug}-报价单-${stamp}.${extension}`;
+  const safeCompanyName = companyName
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/[.\s]+$/g, "")
+    .slice(0, 60) || "企业";
+  return `${safeCompanyName}-报价单-${stamp}.${extension}`;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -212,7 +217,7 @@ export function QuotationComposer({
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(payload.error || "报价单生成失败，请稍后重试。");
       }
-      downloadBlob(await response.blob(), makeFilename(company.slug, format));
+      downloadBlob(await response.blob(), makeFilename(company.name, format));
       setStatus(format === "png" ? "报价单图片已下载。" : "Excel 报价单已下载。");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "报价单生成失败，请稍后重试。");

@@ -11,6 +11,9 @@ All future changes must preserve these architectural decisions unless the user e
 - Do not add checkout, cart, online payment, or public payment QR codes unless the product scope is explicitly changed.
 - Preserve mobile-first public catalog density: at least 6 products visible on a 390x844 mobile viewport in the default catalog view.
 - Preserve category-scoped product numbering, such as `HW-001`.
+- Keep sequential company numbers internal; public and company-admin URLs must use opaque, non-sequential slugs and must not render those slugs as user-facing IDs.
+- Fail closed for unknown, inactive, or expired companies on public catalog and product-detail routes; do not reveal tenant state or fall back to demo data after a configured Supabase read fails.
+- Preserve platform-admin access to each company's product workspace, including viewing and replacing product images through the existing guarded upload flow.
 - Update `supabase/schema.sql`, `src/types.ts`, API handlers, and UI together when changing data shape.
 - Record every development change in `DEVELOPMENT_LOG.md` before committing.
 - Run `npm run build` after code changes.

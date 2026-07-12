@@ -136,6 +136,14 @@ begin
 end;
 $$;
 
+create or replace function public.generate_company_slug()
+returns text
+language sql
+volatile
+as $$
+  select 'site-' || replace(gen_random_uuid()::text, '-', '');
+$$;
+
 create or replace function public.assign_company_number()
 returns trigger
 language plpgsql
@@ -146,7 +154,7 @@ begin
   end if;
 
   if new.slug is null or new.slug = '' then
-    new.slug = 'c' || lpad(new.company_number::text, 3, '0');
+    new.slug = public.generate_company_slug();
   end if;
 
   return new;
@@ -209,12 +217,16 @@ create policy "shipment_sheet_items_service_role_all"
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
-update public.companies
-set company_number = 1,
-    slug = 'c001',
-    login_username = case when login_username = '' then 'demo' else login_username end
+update public.companies as target_company
+set login_username = 'demo'
 where slug = 'demo-factory'
-  and not exists (select 1 from public.companies where slug = 'c001');
+  and login_username = ''
+  and not exists (
+    select 1
+    from public.companies as existing_company
+    where lower(existing_company.login_username) = 'demo'
+      and existing_company.id <> target_company.id
+  );
 
 with numbered as (
   select
@@ -227,6 +239,11 @@ update public.companies as companies
 set company_number = numbered.next_number
 from numbered
 where companies.id = numbered.id;
+
+-- Idempotent privacy migration: only replace legacy slugs matching ^c\d+$.
+update public.companies
+set slug = public.generate_company_slug()
+where slug ~ '^c[0-9]+$';
 
 alter table public.companies
   alter column company_number set not null;

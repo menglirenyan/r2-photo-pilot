@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cleanText, databaseError, jsonError, readJsonBody, requireAdmin, requireCompanyAccess } from "@/lib/api";
 import { parseMoney } from "@/lib/format";
 import { invalidatePublicCatalog, readCompanySlugForInvalidation } from "@/lib/public-cache";
+import { getR2Config } from "@/lib/r2";
 import type { ProductStatus } from "@/types";
 
 type Params = {
@@ -20,8 +21,37 @@ export async function PATCH(request: Request, { params }: Params) {
     description?: string;
     status?: ProductStatus;
     sort_order?: number;
+    image_url?: string;
+    object_key?: string;
+    image_width?: number;
+    image_height?: number;
   }>(request);
   if (!body) return jsonError("请求格式不正确。");
+
+  const imageFields = [body.image_url, body.object_key, body.image_width, body.image_height];
+  const imageUpdateRequested = imageFields.some((value) => value !== undefined);
+  if (imageUpdateRequested && imageFields.some((value) => value === undefined)) {
+    return jsonError("替换图片时必须同时提交图片地址、对象键和图片尺寸。");
+  }
+
+  const imageUrl = imageUpdateRequested ? cleanText(body.image_url, 500) : "";
+  const objectKey = imageUpdateRequested ? cleanText(body.object_key, 500) : "";
+  const imageWidth = imageUpdateRequested ? Number(body.image_width) : 0;
+  const imageHeight = imageUpdateRequested ? Number(body.image_height) : 0;
+
+  if (
+    imageUpdateRequested &&
+    (!imageUrl ||
+      !objectKey ||
+      !Number.isInteger(imageWidth) ||
+      imageWidth <= 0 ||
+      imageWidth > 20000 ||
+      !Number.isInteger(imageHeight) ||
+      imageHeight <= 0 ||
+      imageHeight > 20000)
+  ) {
+    return jsonError("替换图片信息不完整或图片尺寸不正确。");
+  }
 
   const unitPrice = body.unit_price === undefined ? undefined : parseMoney(body.unit_price);
   if (body.unit_price !== undefined && body.unit_price !== null && body.unit_price !== "" && unitPrice === null) {
@@ -53,6 +83,24 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const accessError = await requireCompanyAccess(supabase, session, existingProduct.company_id);
   if (accessError) return accessError;
+
+  if (imageUpdateRequested) {
+    const r2 = getR2Config();
+    if (!r2) return jsonError("图片存储未配置，暂时不能替换图片。", 503);
+
+    const expectedObjectPrefix = `companies/${existingProduct.company_id}/products/`;
+    if (!objectKey.startsWith(expectedObjectPrefix) || imageUrl !== `${r2.publicBaseUrl}/${objectKey}`) {
+      return jsonError("图片地址与当前企业不匹配。", 403);
+    }
+
+    Object.assign(patch, {
+      image_url: imageUrl,
+      object_key: objectKey,
+      image_width: imageWidth,
+      image_height: imageHeight
+    });
+  }
+
   const companySlug = await readCompanySlugForInvalidation(supabase, existingProduct.company_id);
 
   const { data, error } = await supabase.from("products").update(patch).eq("id", id).select("*,categories(id,name,code)").single();

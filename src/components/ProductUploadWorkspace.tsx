@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { ArrowLeft, Eye, ImagePlus, PackagePlus, Save } from "lucide-react";
 import { CompanyAdminNavigation } from "@/components/CompanyAdminNavigation";
+import { compressProductImage, uploadProductImageToR2 } from "@/lib/client-image-upload";
 import type { Category, Company, Product } from "@/types";
 
 type ProductForm = {
@@ -17,6 +18,7 @@ type ProductUploadWorkspaceProps = {
   company: Company;
   categories: Category[];
   configured: boolean;
+  isPlatformAdmin?: boolean;
 };
 
 const initialProductForm: ProductForm = {
@@ -32,62 +34,12 @@ async function readError(response: Response) {
   return payload.error || "操作失败。";
 }
 
-async function compressImage(file: File) {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("请选择图片文件。");
-  }
-
-  if (file.size > 25 * 1024 * 1024) {
-    throw new Error("原图不能超过 25MB，请先在手机相册中适当裁剪。");
-  }
-
-  const bitmap = await createImageBitmap(file);
-  const maxEdge = 960;
-  const ratio = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * ratio));
-  const height = Math.max(1, Math.round(bitmap.height * ratio));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("浏览器不支持图片压缩。");
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, width, height);
-  context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((nextBlob) => {
-      if (nextBlob) resolve(nextBlob);
-      else reject(new Error("图片压缩失败。"));
-    }, "image/webp", 0.74);
-  });
-
-  const compressed = new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), { type: "image/webp" });
-  return { file: compressed, width, height };
-}
-
-function uploadToR2(signedUrl: string, file: File, onProgress: (percent: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", signedUrl);
-    xhr.setRequestHeader("Content-Type", file.type);
-    xhr.setRequestHeader("Cache-Control", "public, max-age=31536000, immutable");
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
-    };
-    xhr.onerror = () => reject(new Error("图片上传失败：无法连接图片存储，请检查网络后重试。"));
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error("图片上传失败：图片存储拒绝了本次上传。"));
-    };
-    xhr.send(file);
-  });
-}
-
-export function ProductUploadWorkspace({ company, categories, configured }: ProductUploadWorkspaceProps) {
+export function ProductUploadWorkspace({
+  company,
+  categories,
+  configured,
+  isPlatformAdmin = false
+}: ProductUploadWorkspaceProps) {
   const [categoryList, setCategoryList] = useState(categories);
   const [categoryInput, setCategoryInput] = useState("");
   const [categoryCode, setCategoryCode] = useState("");
@@ -148,7 +100,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
     setIsSubmitting(true);
 
     try {
-      const compressed = await compressImage(selectedFile);
+      const compressed = await compressProductImage(selectedFile);
       const signResponse = await fetch("/api/sign-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,7 +115,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
       if (!signResponse.ok) throw new Error(await readError(signResponse));
       const signed = (await signResponse.json()) as { signedUrl: string; publicUrl: string; objectKey: string };
 
-      await uploadToR2(signed.signedUrl, compressed.file, (percent) => {
+      await uploadProductImageToR2(signed.signedUrl, compressed.file, (percent) => {
         setMessage(`正在上传图片 ${percent}%`);
       });
 
@@ -198,7 +150,7 @@ export function ProductUploadWorkspace({ company, categories, configured }: Prod
 
   return (
     <main className="admin-shell">
-      <CompanyAdminNavigation active="upload" company={company} />
+      <CompanyAdminNavigation active="upload" company={company} isPlatformAdmin={isPlatformAdmin} />
 
       <section className="admin-main">
         <header className="admin-top">

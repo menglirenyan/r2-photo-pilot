@@ -90,8 +90,6 @@ async function loadPublicCompany(slug: string): Promise<PublicCompany | null> {
 
   if (error) {
     if (isMissingRow(error)) return null;
-    const sample = samplePublicCompany(slug);
-    if (sample) return sample;
     throw publicReadError("company", error);
   }
 
@@ -160,8 +158,6 @@ async function loadPublicCatalogContent(companyId: string): Promise<PublicCatalo
   ]);
 
   if (categoriesResult.error || productsResult.error) {
-    const sample = sampleCatalogContent(companyId);
-    if (sample) return sample;
     throw publicReadError("catalog", categoriesResult.error || productsResult.error || timeoutError);
   }
 
@@ -202,13 +198,6 @@ async function loadPublicProductDetail(companyId: string, productCode: string): 
   );
 
   if (error) {
-    if (isDemoReadFallbackEnabled() && companyId === sampleCompany.id) {
-      const product = getSampleAdminSnapshot().products.find((item) => item.product_code === productCode);
-      if (product) {
-        const { id, category_id, product_code, name, specification, unit_price, description, image_url, categories } = product;
-        return { id, category_id, product_code, name, specification, unit_price, description, image_url, categories };
-      }
-    }
     throw publicReadError("product detail", error);
   }
 
@@ -228,13 +217,10 @@ function getCachedPublicProductDetail(companyId: string, productCode: string) {
 
 export const getPublicCatalog = cache(async (slug: string): Promise<PublicCatalog | null> => {
   const company = await getCachedPublicCompany(slug);
-  if (!company) return null;
-
-  const isAccessible = isCompanyAccessible(company.status, company.paid_until);
-  if (!isAccessible) return { company, categories: [], products: [], isAccessible };
+  if (!company || !isCompanyAccessible(company.status, company.paid_until)) return null;
 
   const content = await getCachedPublicCatalogContent(company.id);
-  return { company, ...content, isAccessible };
+  return { company, ...content, isAccessible: true };
 });
 
 export const getProductDetail = cache(async (companySlug: string, productCode: string) => {

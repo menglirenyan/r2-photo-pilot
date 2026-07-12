@@ -57,4 +57,7 @@
 - 在东京项目执行当前 Schema，并按外键顺序迁移五张业务表；迁移后计数为企业 1、分类 3、产品 1、出货单 0、出货单明细 0，产品 UUID、编号、密码哈希、时间戳与对象键均保留。
 - `img.huowu.org` 已绑定现有 APAC Bucket；35 个对象均补齐 `public, max-age=31536000, immutable`，对象数量和总字节不变，抽样 SHA-256 一致。
 - 目标产品图片地址已按 `object_key` 切换到 `img.huowu.org`；Cache Rule 生效后同一图片首次请求为 `MISS`、第二次为 `HIT`。
-- Vercel Production 环境变量已切换为东京 Supabase 和 `img.huowu.org`；待 Git 推送触发东京 `hnd1` 部署后执行主站橙云/DNS-only A/B 与线上回归。
+- Vercel Production 环境变量已切换为东京 Supabase 和 `img.huowu.org`；提交 `48a9503` 推送后，公开产品册连续命中 `X-Vercel-Cache: HIT`，执行区域确认为东京 `hnd1`。
+- 主站橙云 10 次暖请求零错误，TTFB 中位数 523ms、p90 1037ms；DNS-only 10 次暖请求零错误，TTFB 中位数 188ms、p90 206ms。
+- DNS-only 的 TTFB 中位数比橙云低约 64%、p90 低约 80%，因此按预设判定规则保留主站 DNS-only；`img.huowu.org` 继续使用 Cloudflare CDN。
+- 线上公开产品册与详情已返回 `C001-001` 和新图片域名；生产管理员登录、写入后立即失效缓存的最终回归待确认 Vercel 中 `ADMIN_USERNAME`、`ADMIN_PASSWORD`、`SESSION_SECRET` 已配置后执行。

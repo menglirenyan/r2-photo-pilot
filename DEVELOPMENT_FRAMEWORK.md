@@ -8,10 +8,10 @@
 
 当前阶段目标：
 
-- 浏览者通过企业公开链接访问产品册，例如 `/c/c001`。
+- 浏览者通过带随机访问标识的企业公开链接访问产品册，例如 `/c/site-<opaque-token>`；顺序企业编号不得出现在外部 URL。
 - 企业只有在后台被手动开通、且未过期时，公开页才展示产品。
 - 企业用户不自助注册，不在线付款，不下单。
-- 企业通过 `/:companySlug` 登录管理自己的产品册；运营者通过 `/admin` 只管理企业用户、登录账号、开通状态和可用时间。
+- 企业通过 `/:companySlug` 登录管理自己的产品册；运营者通过 `/admin` 管理企业用户、登录账号、开通状态和可用时间，并可进入任一企业工作台管理产品图片。
 - 第一版采用邀请制与私下付款，后台人工开通，不在网页展示收款码。
 
 明确不做：
@@ -39,15 +39,15 @@
 - 后台工作台使用小型 Client Component，所有写入通过 `/api/admin/*` API 进行。
 - Supabase service role 只允许在服务端使用，不能暴露到 `NEXT_PUBLIC_*`。
 - R2 图片上传继续走 signed URL 直传，图片不经过 Vercel 后端转发。
-- 本地没有 Supabase 或 Supabase 不可达时，可以展示演示数据，但写入 API 必须拒绝；生产环境默认关闭演示数据回退，除非明确设置 `ALLOW_DEMO_FALLBACK=true` 做临时演示。
+- 本地未配置 Supabase 时可以展示演示数据，但写入 API 必须拒绝；一旦已配置 Supabase，公开读取失败必须关闭访问，不能回退到演示租户或演示产品。生产环境默认关闭演示数据回退。
 - 所有产品公开读取必须同时满足企业可访问、产品 `active` 两个条件。
 
 ## 3. 路由结构
 
 公开路由：
 
-- `/`：重定向到 `/c/c001`，仅作为本地演示入口。
-- `/[companySlug]`：企业管理入口；未登录时显示登录表单，已登录时进入该企业产品列表后台。
+- `/`：中性入口，不重定向或展示任何企业编号、slug。
+- `/[companySlug]`：企业管理入口；`companySlug` 为不可预测的非顺序访问标识。未登录时显示不含 slug 的登录表单，已登录时进入该企业产品列表后台。
 - `/[companySlug]/upload`：企业产品上传入口；未登录时显示登录表单，已登录时进入独立上传界面。
 - `/c/[companySlug]`：企业公开产品册。
 - `/c/[companySlug]/p/[productCode]`：产品详情页。
@@ -56,7 +56,7 @@
 后台路由：
 
 - `/admin/login`：运营方总后台登录。
-- `/admin`：运营方用户管理后台，只管理企业用户、登录账号、开通状态和可用时间。
+- `/admin`：运营方用户管理后台；不内嵌产品网格，但为每个企业提供进入产品/图片工作台和打开公开产品册的入口。
 
 API 路由：
 
@@ -65,7 +65,7 @@ API 路由：
 - `/api/admin/companies`：仅平台管理员可用，创建/更新/删除用户企业、登录账号、开通状态、可用到期日。
 - `/api/admin/categories`：创建企业分类。
 - `/api/admin/products`：创建产品并按分类自动生成编号。
-- `/api/admin/products/[id]`：更新或删除产品。
+- `/api/admin/products/[id]`：更新或删除产品；替换图片时必须成组校验 R2 地址、对象键与尺寸，并再次校验企业归属。
 - `/api/admin/shipments`：旧保存型出货单接口；企业当前 UI 不调用，仅为历史兼容保留。
 - `/api/admin/quotations/png`：校验后台 session 和企业产品归属，生成包含产品图的临时报价单 PNG，不写数据库。
 - `/api/admin/quotations/xlsx`：校验后台 session 和企业产品归属，生成包含产品缩略图的真实 XLSX，不写数据库。
@@ -93,15 +93,16 @@ API 路由：
 
 编号规则：
 
-- 企业编号按创建顺序递增，展示和路由格式为 `c001`、`c002`。
+- `company_number` 按创建顺序递增，但只用于数据库内部排序，不返回给游客、不作为 URL、也不在后台界面展示。
+- `slug` 使用不可预测的 `site-...` 随机值；旧 `c001`、`c002` 形式通过 `supabase/schema.sql` 幂等迁移后立即失效。
 - 产品编号按分类独立递增。
 - 格式为 `分类代码-三位序号`，例如 `HW-001`。
 - 新产品创建时由 `/api/admin/products` 查询该分类当前最大 `product_number` 后生成。
 
 访问规则：
 
-- 企业 `status = active` 才可访问。
-- `paid_until` 为空表示不限制到期日；有日期时必须未过期。
+- 企业 `status = active` 才可公开访问；未知、停用和过期企业对游客统一返回 404。
+- `paid_until` 为空表示不限制到期日；有日期时按 `Asia/Shanghai` 判断，到期日当天有效，次日 00:00 起失效。
 - 产品 `status = active` 才在公开页展示。
 
 RLS 策略：
@@ -125,7 +126,7 @@ RLS 策略：
 
 - `layout.tsx`：全局 HTML 和 metadata。
 - `globals.css`：全局设计系统、公开页、后台页、打印样式。
-- `page.tsx`：根路径重定向。
+- `page.tsx`：不暴露企业标识的中性根入口。
 - `[companySlug]/page.tsx`：企业产品列表管理入口。
 - `[companySlug]/upload/page.tsx`：企业产品上传入口。
 - `c/[companySlug]/page.tsx`：公开产品册服务端入口。
@@ -140,8 +141,8 @@ RLS 策略：
 - `PublicCatalog.tsx`：公开产品册客户端入口，复用产品册搜索、分类筛选、产品卡渲染。
 - `SafeImage.tsx`：产品图片兜底，图片失败时显示产品名占位。
 - `LoginForm.tsx`：平台和企业后台登录表单。
-- `AdminDashboard.tsx`：平台后台工作台，只渲染用户管理。
-- `CompanyProductListWorkspace.tsx`：企业产品列表工作台，复用公开产品册卡片布局，并承载批量选择、修改、删除和报价单入口。
+- `AdminDashboard.tsx`：平台后台工作台，渲染用户管理及进入各企业产品/图片工作台的入口。
+- `CompanyProductListWorkspace.tsx`：企业产品列表工作台，复用公开产品册卡片布局，并承载批量选择、资料与图片修改、删除和报价单入口。
 - `CompanyAdminNavigation.tsx`：企业后台共用导航；桌面端固定侧栏，移动端顶部栏与抽屉。
 - `QuotationComposer.tsx`：当前产品列表页内的临时报价单编辑、预览、草稿恢复和 PNG/XLSX 下载。
 - `ProductCatalogView.tsx`：公开浏览页和企业产品列表共用的产品册搜索、分类、卡片渲染组件。
@@ -151,12 +152,14 @@ RLS 策略：
 
 - `supabase.ts`：创建服务端 Supabase client。
 - `r2.ts`：R2 配置和 S3 client。
+- `client-image-upload.ts`：新增与替换产品图片共用的浏览器压缩、R2 PUT 和进度上报。
+- `company-slug.ts`：服务端生成不可预测、非顺序的企业访问标识。
 - `runtime-config.ts`：生产/本地运行时门禁、演示回退开关和上线环境变量检查。
 - `auth.ts`：后台 session 签名、校验、清理。
 - `api.ts`：后台 API 通用鉴权、错误、文本清理工具。
 - `data.ts`：公开页和后台页的服务端读模型。
 - `format.ts`：价格、日期、slug、企业可访问判断等纯函数。
-- `sample-data.ts`：本地演示数据，仅用于无 Supabase 或查询超时时的只读展示；生产环境默认不使用。
+- `sample-data.ts`：本地演示数据，仅用于未配置 Supabase 的只读展示；生产环境默认不使用。
 - `quotation.ts`：报价单请求清理、数值校验和金额计算纯函数。
 - `quotation-cache.ts`：报价单浏览器草稿 key、两小时 TTL 和读取校验。
 - `quotation-export.tsx`：服务端产品图解析、PNG 与 XLSX 文件生成。
@@ -169,8 +172,8 @@ RLS 策略：
 
 1. 用户访问 `/c/[companySlug]`。
 2. `src/app/c/[companySlug]/page.tsx` 调用 `getPublicCatalog(slug)`。
-3. `getPublicCatalog` 读取企业、分类、active 产品。
-4. 如果企业未开通或过期，页面只显示不可访问提示。
+3. 页面每次请求先按北京时间检查企业状态和到期日，再读取缓存的分类与 active 产品。
+4. 如果企业不存在、未开通或过期，统一走 `notFound()`，metadata 使用通用文案并设置 `noindex,nofollow`，不得暴露企业名称或失效原因。
 5. 如果可访问，把必要数据传给 `PublicCatalog` 做搜索和筛选。
 
 产品详情：
@@ -189,10 +192,10 @@ RLS 策略：
 图片上传：
 
 1. 后台选择产品图。
-2. `ProductUploadWorkspace` 在浏览器端压缩为 WebP，长边最大 960，并显示上传进度。
+2. `ProductUploadWorkspace` 或产品编辑器复用 `client-image-upload.ts`，在浏览器端压缩为 WebP，长边最大 960，并显示上传进度。
 3. 调用 `/api/sign-upload` 获取 R2 signed URL。
 4. 浏览器 PUT 到 R2。
-5. 调用 `/api/admin/products` 写入产品 metadata。
+5. 新增产品调用 `/api/admin/products`；替换图片调用 `/api/admin/products/[id]`，服务端严格校验新对象属于该企业后写入 metadata。
 
 临时报价单：
 
@@ -218,12 +221,12 @@ RLS 策略：
 
 - 以运营效率为主，不做营销式页面。
 - PC 桌面优先，移动端可用但不是主要操作场景。
-- `/admin` 只展示用户管理，不展示产品、图片、报价单。
+- `/admin` 只展示用户管理，不内嵌产品、图片或报价单；平台管理员通过企业行入口进入企业工作台后，可查看和替换该企业产品图片。
 - 企业后台 `/:companySlug` 以产品列表为主，不展示平台用户管理。
 - 企业上传页 `/:companySlug/upload` 单独展示分类创建和产品上传表单，桌面端和手机端都应可直接通过按钮或网址进入。
 - 企业后台产品列表与公开浏览页共用产品卡片布局；额外的选择、修改、删除、报价单操作只能出现在后台工具栏。
 - 产品行和关键按钮保留稳定测试属性，例如 `data-product-code`、`data-testid`。
-- 企业后台桌面端使用固定侧栏；移动端使用顶部栏与抽屉，导航保持产品列表、上传产品、生成报价单、查看产品册和退出登录。
+- 企业后台桌面端使用固定侧栏；移动端使用顶部栏与抽屉，导航保持产品列表、上传产品、生成报价单、查看产品册和退出登录；平台管理员进入时额外显示“返回用户管理”。
 - 报价单编辑器和下载预览必须在产品列表页内同步，不新增报价单持久化路由。
 
 设计系统：
@@ -239,11 +242,12 @@ RLS 策略：
 
 - 公开页只查询展示所需字段，不把后台字段全部传给客户端。
 - 服务端查询使用 `React.cache()` 去重。
+- 公开目录和详情必须动态执行访问门禁，内容查询可以继续使用 300 秒 `unstable_cache`；不能用整页 ISR 跨过自然到期边界。
 - 长列表优先限制数量或分页；当前公开产品上限为 80，后台产品列表上限为 200。
 - 图片使用 `next/image`，并设置 `sizes`。
 - R2 产品图直接由公开图片域名返回，避免额外图片代理；上传对象设置长期不可变缓存。
 - 外部图片必须通过 `SafeImage` 或等效兜底处理，不能让访客看到永久空白块。
-- Supabase 查询在本地可超时回退到演示数据，但写入 API 不能用演示数据假成功；生产环境默认不回退到演示数据。
+- 只有本地未配置 Supabase 时才可读取演示数据；Supabase 已配置后的公开查询超时或失败必须 fail closed，不能回退到演示数据。写入 API 不能用演示数据假成功。
 - 后台重交互状态应使用本地 state，避免每个输入都请求服务端。
 
 谨慎修改：
@@ -294,10 +298,10 @@ RLS 策略：
 
 1. 将本次需求、实现和验证结果追加到 `DEVELOPMENT_LOG.md`。
 2. 运行 `npm run build`。
-3. 验证 `/c/c001`。
-4. 验证 `/c/c001/p/TC-001` 或任意产品详情。
-5. 验证 `/c001`、`/c001/upload`、`/admin/login` 和 `/admin`。
-6. 在 `/c001` 批量选择产品并生成报价单，验证编辑、待议单价、合计、草稿恢复和 PNG/XLSX 下载。
+3. 验证 `/c/demo-catalog`，并确认公开 URL、标题和页面不含顺序企业编号。
+4. 验证 `/c/demo-catalog/p/TC-001` 或任意产品详情，以及停用/过期企业目录与详情统一 404。
+5. 验证 `/demo-catalog`、`/demo-catalog/upload`、`/admin/login` 和 `/admin`。
+6. 在 `/demo-catalog` 批量选择产品并生成报价单，验证编辑、图片替换、待议单价、合计、草稿恢复和 PNG/XLSX 下载。
 7. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
 
 ## 11. 常见改动指南
@@ -330,18 +334,21 @@ RLS 策略：
 - 更新 `src/lib/r2.ts` 或新增存储适配层。
 - 更新 `next.config.mjs` 的图片 remotePatterns。
 - 保持 `/api/sign-upload` 的后台登录要求。
+- 替换产品图片必须生成新 object key，不能覆盖带 immutable 缓存的旧 URL；数据库更新前再次校验企业对象键前缀与公开图片地址。
 
 ## 12. 当前验证基线
 
 最近验证通过的基线：
 
 - `npm run build` 通过。
-- 手机 390x844 视口下，`/c/c001` 默认首屏可见 6 个产品。
+- 手机 390x844 视口下，`/c/demo-catalog` 默认首屏可见 6 个产品。
 - 搜索“陶瓷”返回 2 个产品。
-- `/c/c001/p/TC-001` 产品详情正常展示。
+- `/c/demo-catalog/p/TC-001` 产品详情正常展示。
 - `/admin/login` 使用本地默认密码 `admin123` 可进入平台用户管理，不显示产品和报价单。
-- `/c001` 在本地无 Supabase 演示环境下使用 `demo/demo123` 可进入企业产品列表后台。
-- `/c001/upload` 在同一登录态下可进入独立产品上传页。
+- `/demo-catalog` 在本地无 Supabase 演示环境下使用 `demo/demo123` 可进入企业产品列表后台。
+- `/demo-catalog/upload` 在同一登录态下可进入独立产品上传页。
+- 平台管理员可从 `/admin` 进入任一企业产品工作台，查看当前图并选择新图替换；跨企业企业账号仍被 API 拒绝。
+- 目录和详情每次请求执行北京时间门禁，未知、停用和过期企业统一 404；Supabase 已配置时公开查询失败不回退演示数据。
 - 企业后台选择 `HW-001` 后可打开临时报价单，当前页显示 1 行，合计 `¥3.80`，并可下载 PNG/XLSX。
 - 未发现旧 `photo_uploads` 业务引用。
 

@@ -8,7 +8,7 @@ export const sampleCompany: Company = {
   id: "00000000-0000-0000-0000-000000000001",
   company_number: 1,
   name: "华悟样品厂",
-  slug: "c001",
+  slug: "demo-catalog",
   login_username: "demo",
   status: "active",
   paid_until: paidUntil,
@@ -107,7 +107,7 @@ export const sampleShipmentSheets: ShipmentSheet[] = [
   }
 ];
 
-export function getSampleCatalog(slug = "c001"): PublicCatalog | null {
+export function getSampleCatalog(slug = sampleCompany.slug): PublicCatalog | null {
   if (slug !== sampleCompany.slug) return null;
 
   return {

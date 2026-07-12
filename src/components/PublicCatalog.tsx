@@ -5,7 +5,7 @@ import { ProductCardContent, ProductCatalogView } from "@/components/ProductCata
 import type { CatalogCategory, CatalogProduct, Company } from "@/types";
 
 type PublicCatalogProps = {
-  company: Pick<Company, "name" | "slug" | "paid_until">;
+  company: Pick<Company, "name" | "slug">;
   categories: CatalogCategory[];
   products: CatalogProduct[];
 };

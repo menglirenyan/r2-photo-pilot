@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
   try {
     const png = await buildQuotationPng(result.context);
-    const encoded = encodeURIComponent(`${result.context.company.slug}-报价单.png`);
+    const encoded = encodeURIComponent("报价单.png");
     return new NextResponse(new Uint8Array(png), {
       headers: {
         "Cache-Control": "private, no-store",

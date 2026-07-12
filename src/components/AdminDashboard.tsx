@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CalendarDays, CheckCircle2, LogOut, Plus, Trash2, XCircle } from "lucide-react";
+import { BookOpen, Building2, CalendarDays, CheckCircle2, ImagePlus, LogOut, Plus, Trash2, XCircle } from "lucide-react";
 import { compactDate } from "@/lib/format";
 import type { AdminSnapshot, Company } from "@/types";
 
@@ -67,7 +67,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
     const payload = (await response.json()) as { company: Company };
     setCompanyList((current) => [payload.company, ...current]);
     setCompanyForm(initialCompanyForm);
-    setMessage(`用户已添加，企业编号 ${payload.company.slug}。`);
+    setMessage("用户已添加。");
   }
 
   function updateCompanyLocal(companyId: string, patch: Partial<Company>) {
@@ -140,7 +140,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
         <header className="admin-top">
           <div>
             <h1>用户管理</h1>
-            <p>添加企业用户，设置登录账号、初始密码、开通状态和可用时间。企业编号按顺序自动生成。</p>
+            <p>添加企业用户，设置登录账号、初始密码、开通状态和可用时间。</p>
           </div>
           <span className="admin-count">共 {companyList.length} 个用户</span>
         </header>
@@ -163,7 +163,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
                 登录账号
                 <input
                   autoComplete="username"
-                  placeholder="例如 factory001"
+                  placeholder="例如 sales-team"
                   required
                   value={companyForm.login_username}
                   onChange={(event) => setCompanyForm({ ...companyForm, login_username: event.target.value })}
@@ -228,9 +228,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
                 <article className="company-row" key={company.id}>
                   <div className="company-summary">
                     <strong>{company.name}</strong>
-                    <span>编号：{company.slug}</span>
                     <small>登录账号：{company.login_username || "-"}</small>
-                    <small>公开目录：/c/{company.slug}</small>
                     <small>当前到期：{compactDate(company.paid_until)}</small>
                   </div>
                   <div className="company-controls">
@@ -272,6 +270,14 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
                         onChange={(event) => updateCompanyLocal(company.id, { paid_until: event.target.value || null })}
                       />
                     </label>
+                    <a className="ghost-action" href={`/${company.slug}`}>
+                      <ImagePlus size={15} />
+                      管理产品/图片
+                    </a>
+                    <a className="ghost-action" href={`/c/${company.slug}`} rel="noreferrer" target="_blank">
+                      <BookOpen size={15} />
+                      公开产品册
+                    </a>
                     <button
                       className={company.status === "active" ? "status-toggle active" : "status-toggle"}
                       onClick={() =>
