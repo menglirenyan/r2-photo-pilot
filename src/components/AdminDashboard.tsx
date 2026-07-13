@@ -154,6 +154,7 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
               <Building2 size={18} />
               <h2>添加用户</h2>
             </div>
+            <p className="admin-panel-note">内部联系人与内部备注仅供平台内部管理，不会显示在企业产品册。</p>
             <div className="field-grid two">
               <label>
                 用户名称
@@ -198,14 +199,14 @@ export function AdminDashboard({ companies, configured }: AdminDashboardProps) {
                 />
               </label>
               <label>
-                联系人
+                内部联系人
                 <input
                   value={companyForm.contact_name}
                   onChange={(event) => setCompanyForm({ ...companyForm, contact_name: event.target.value })}
                 />
               </label>
               <label>
-                备注
+                内部备注
                 <input
                   value={companyForm.contact_note}
                   onChange={(event) => setCompanyForm({ ...companyForm, contact_note: event.target.value })}

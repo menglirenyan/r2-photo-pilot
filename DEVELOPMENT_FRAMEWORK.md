@@ -11,6 +11,7 @@
 - 浏览者通过带随机访问标识的企业公开链接访问产品册，例如 `/c/site-<opaque-token>`；顺序企业编号不得出现在外部 URL。
 - 企业只有在后台被手动开通、且未过期时，公开页才展示产品。
 - 企业用户不自助注册，不在线付款，不下单。
+- 企业可在工作台维护独立的产品册公开电话；游客仅在电话非空时看到“联系方式”，平台内部联系人和内部备注不对游客展示。
 - 企业可从 `/` 输入账号密码，由服务端识别后进入自己的 `/:companySlug` 产品后台；原企业专属管理链接继续兼容。运营者通过同一入口或 `/admin/login` 登录，并在 `/admin` 管理企业用户、登录账号、开通状态和可用时间，也可进入任一企业工作台管理产品图片。
 - 第一版采用邀请制与私下付款，后台人工开通，不在网页展示收款码。
 
@@ -62,6 +63,7 @@ API 路由：
 
 - `/api/admin/login`：校验平台管理员或企业账号密码，写入 HTTP-only session cookie；统一入口模式下由服务端按账号解析角色和企业，并返回可信的站内后台地址。
 - `/api/admin/logout`：清理 session。
+- `/api/admin/company-contact`：当前企业或平台管理员更新该企业的产品册公开电话；只接受企业 ID 和公开电话，并执行企业范围校验。
 - `/api/admin/companies`：仅平台管理员可用，创建/更新/删除用户企业、登录账号、开通状态、可用到期日。
 - `/api/admin/categories`：创建企业分类。
 - `/api/admin/products`：创建产品并按分类自动生成编号。
@@ -85,7 +87,7 @@ API 路由：
 
 核心表：
 
-- `companies`：企业租户。关键字段：`company_number`、`slug`、`login_username`、`password_hash`、`status`、`paid_until`。
+- `companies`：企业租户。关键字段：`company_number`、`slug`、`login_username`、`password_hash`、`status`、`paid_until`、平台内部的 `contact_name/contact_note`，以及游客可见的 `public_contact_phone`。
 - `categories`：企业内产品分类。关键字段：`company_id`、`name`、`code`、`sort_order`。
 - `products`：产品。关键字段：`category_id`、`product_number`、`product_code`、`image_url`、`unit_price`、`status`。
 - `shipment_sheets`：出货单主表。
@@ -103,6 +105,7 @@ API 路由：
 
 - 企业 `status = active` 才可公开访问；未知、停用和过期企业对游客统一返回 404。
 - `paid_until` 为空表示不限制到期日；有日期时按 `Asia/Shanghai` 判断，到期日当天有效，次日 00:00 起失效。
+- `public_contact_phone` 为空字符串表示不公开联系方式；它与平台内部的 `contact_name`、`contact_note` 不联动。
 - 产品 `status = active` 才在公开页展示。
 
 RLS 策略：
@@ -138,11 +141,11 @@ RLS 策略：
 
 `src/components`：
 
-- `PublicCatalog.tsx`：公开产品册客户端入口，复用产品册搜索、分类筛选、产品卡渲染。
+- `PublicCatalog.tsx`：公开产品册客户端入口，复用产品册搜索、分类筛选、产品卡渲染，并只把公开电话传入目录头部。
 - `SafeImage.tsx`：产品图片兜底，图片失败时显示产品名占位。
 - `LoginForm.tsx`：统一入口、平台专用入口和企业专属入口共用的后台登录表单。
 - `AdminDashboard.tsx`：平台后台工作台，渲染用户管理及进入各企业产品/图片工作台的入口。
-- `CompanyProductListWorkspace.tsx`：企业产品列表工作台，复用公开产品册卡片布局，并承载批量选择、资料与图片修改、删除和报价单入口。
+- `CompanyProductListWorkspace.tsx`：企业产品列表工作台，复用公开产品册卡片布局，并承载公开电话维护、批量选择、资料与图片修改、删除和报价单入口。
 - `CompanyAdminNavigation.tsx`：企业后台共用导航；桌面端固定侧栏，移动端顶部栏与抽屉。
 - `QuotationComposer.tsx`：当前产品列表页内的临时报价单编辑、预览、草稿恢复和 PNG/XLSX 下载。
 - `ProductCatalogView.tsx`：公开浏览页和企业产品列表共用的产品册搜索、分类、卡片渲染组件。
@@ -174,7 +177,8 @@ RLS 策略：
 2. `src/app/c/[companySlug]/page.tsx` 调用 `getPublicCatalog(slug)`。
 3. 页面每次请求先按北京时间检查企业状态和到期日，再读取缓存的分类与 active 产品。
 4. 如果企业不存在、未开通或过期，统一走 `notFound()`，metadata 使用通用文案并设置 `noindex,nofollow`，不得暴露企业名称或失效原因。
-5. 如果可访问，把必要数据传给 `PublicCatalog` 做搜索和筛选。
+5. 如果可访问，把企业名称、slug、非空公开电话及必要产品数据传给 `PublicCatalog`；绝不传递平台内部联系人或内部备注。
+6. 公开电话非空时，目录头部显示“联系方式”；游客点击后才展开号码，并可通过 `tel:` 链接拨打。空值时不渲染按钮。
 
 产品详情：
 
@@ -189,6 +193,13 @@ RLS 策略：
 3. 成功后写入带角色的 HTTP-only session cookie；统一入口只接受服务端生成的 `/admin` 或 `/${company.slug}` 站内目标，客户端不能提交返回地址或决定企业 slug。
 4. `/admin` 只允许平台管理员进入用户管理；`/[companySlug]` 和 `/[companySlug]/upload` 允许平台管理员或该企业 session 进入企业后台。
 5. 账号不存在、密码错误或企业不匹配统一返回相同错误，不通过登录响应暴露企业是否存在。
+
+公开联系方式：
+
+1. 企业或平台管理员进入 `/:companySlug` 产品工作台，展开“公开联系方式”。
+2. 客户端仅把 `company_id` 和 `public_contact_phone` 提交到 `/api/admin/company-contact`。
+3. API 先调用 `requireAdmin()`，再调用 `requireCompanyAccess()` 校验企业范围，只更新公开电话字段。
+4. 保存成功后立即失效公开 company/catalog 缓存；清空电话后游客产品册不再渲染联系方式入口。
 
 图片上传：
 
@@ -216,6 +227,7 @@ RLS 策略：
 - 产品卡采用双列紧凑布局，固定图片比例，名称最多两行，规格单行省略。
 - 有单价显示价格，无单价时价格区域留空。
 - 搜索必须匹配产品编号、名称、规格、描述、分类名、分类代码。
+- 产品册公开电话非空时，企业标题卡右侧显示紧凑“联系方式”按钮；号码默认收起，点击后显示，空值时按钮和号码均不渲染。
 - 不出现购物车、下单、支付、收款码入口。
 
 后台页：
@@ -225,6 +237,8 @@ RLS 策略：
 - 根路径在桌面和移动端首屏直接展示账号、密码和登录按钮；统一入口的账号初值为空，不要求用户先获得企业管理 slug。
 - `/admin` 只展示用户管理，不内嵌产品、图片或报价单；平台管理员通过企业行入口进入企业工作台后，可查看和替换该企业产品图片。
 - 企业后台 `/:companySlug` 以产品列表为主，不展示平台用户管理。
+- 企业后台在产品列表顶部提供“公开联系方式”，帮助文案必须明确它用于游客产品册，并与平台的内部联系人/内部备注无关；空值保存即停止公开。
+- 平台 `/admin` 中的 `contact_name/contact_note` 始终标记为内部联系人/内部备注，不在该表单编辑公开电话；平台管理员需要代管公开电话时进入企业工作台。
 - 企业上传页 `/:companySlug/upload` 单独展示分类创建和产品上传表单，桌面端和手机端都应可直接通过按钮或网址进入。
 - 企业后台产品列表与公开浏览页共用产品卡片布局；额外的选择、修改、删除、报价单操作只能出现在后台工具栏。
 - 产品行和关键按钮保留稳定测试属性，例如 `data-product-code`、`data-testid`。
@@ -283,6 +297,7 @@ RLS 策略：
 - 生产环境必须设置 `SESSION_SECRET`，否则不会签发后台 session。
 - `ALLOW_DEMO_FALLBACK=true` 只能用于明确标注的临时演示环境，正式生产不要设置。
 - 后台上传 API 必须先验证 session。
+- 公开电话写入必须同时验证后台 session 和企业范围，不能允许企业账号修改其他企业；公开读取只能选择 `public_contact_phone`，不能把 `contact_name/contact_note` 传到客户端。
 - 报价单导出 API 必须验证 session、企业 slug 和每个产品 ID 的企业归属；不能接受客户端提供的任意图片 URL。
 
 ## 10. 后续修改流程
@@ -291,7 +306,7 @@ RLS 策略：
 
 1. 先读 `DEVELOPMENT_FRAMEWORK.md`。
 2. 确认改动属于公开页、后台、API、数据模型、部署配置中的哪一类。
-3. 检查是否需要同步修改 `src/types.ts`、`supabase/schema.sql`、API、UI。
+3. 检查是否需要同步修改 `src/types.ts`、`supabase/schema.sql`、API、UI；企业公开电话等数据形状改动必须全链路同步。
 4. 如果改变公开产品展示，必须检查手机端首屏密度。
 5. 如果改变后台写入，必须检查 `requireAdmin()` 是否仍然覆盖。
 6. 如果改变数据模型，必须写清迁移策略，不能只改 TypeScript。
@@ -303,8 +318,9 @@ RLS 策略：
 3. 验证 `/c/demo-catalog`，并确认公开 URL、标题和页面不含顺序企业编号。
 4. 验证 `/c/demo-catalog/p/TC-001` 或任意产品详情，以及停用/过期企业目录与详情统一 404。
 5. 验证 `/` 的统一登录：平台账号进入 `/admin`，至少两个正式企业账号分别进入各自不透明 slug 后台，错误凭据显示统一错误；同时回归 `/demo-catalog`、`/demo-catalog/upload`、`/admin/login` 和 `/admin`。
-6. 在 `/demo-catalog` 批量选择产品并生成报价单，验证编辑、图片替换、待议单价、合计、草稿恢复和 PNG/XLSX 下载。
-7. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
+6. 验证公开电话：本企业可保存/清空，跨企业被拒绝；有电话时游客目录显示并可展开，空值时完全隐藏，且公开数据不含 `contact_name/contact_note`。
+7. 在 `/demo-catalog` 批量选择产品并生成报价单，验证编辑、图片替换、待议单价、合计、草稿恢复和 PNG/XLSX 下载。
+8. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
 
 ## 11. 常见改动指南
 
@@ -350,6 +366,7 @@ RLS 策略：
 - `/` 直接显示空账号、密码和登录按钮；本地无 Supabase 时，`admin/admin123` 进入 `/admin`，`demo/demo123` 进入 `/demo-catalog`，错误凭据不泄露账号或企业状态。
 - `/demo-catalog` 在本地无 Supabase 演示环境下使用 `demo/demo123` 可进入企业产品列表后台。
 - `/demo-catalog/upload` 在同一登录态下可进入独立产品上传页。
+- `/demo-catalog` 演示企业填写公开电话时显示“联系方式”，点击后显示号码；公开电话为空时不渲染入口，平台内部联系人/内部备注从不进入公开页面。
 - 平台管理员可从 `/admin` 进入任一企业产品工作台，查看当前图并选择新图替换；跨企业企业账号仍被 API 拒绝。
 - 目录和详情每次请求执行北京时间门禁，未知、停用和过期企业统一 404；Supabase 已配置时公开查询失败不回退演示数据。
 - 企业后台选择 `HW-001` 后可打开临时报价单，当前页显示 1 行，合计 `¥3.80`，并可下载 PNG/XLSX。

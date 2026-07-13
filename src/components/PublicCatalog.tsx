@@ -5,7 +5,7 @@ import { ProductCardContent, ProductCatalogView } from "@/components/ProductCata
 import type { CatalogCategory, CatalogProduct, Company } from "@/types";
 
 type PublicCatalogProps = {
-  company: Pick<Company, "name" | "slug">;
+  company: Pick<Company, "name" | "slug" | "public_contact_phone">;
   categories: CatalogCategory[];
   products: CatalogProduct[];
 };
@@ -16,6 +16,7 @@ export function PublicCatalog({ company, categories, products }: PublicCatalogPr
       asMain
       categories={categories}
       company={company}
+      contactPhone={company.public_contact_phone}
       products={products}
       renderProduct={(product, index) => (
         <Link

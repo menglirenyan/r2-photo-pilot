@@ -23,8 +23,8 @@ import type {
 
 const queryTimeoutMs = 3500;
 const companySafeSelect =
-  "id,company_number,name,slug,login_username,status,paid_until,contact_name,contact_note,created_at,updated_at";
-const publicCompanySelect = "id,name,slug,status,paid_until";
+  "id,company_number,name,slug,login_username,status,paid_until,contact_name,contact_note,public_contact_phone,created_at,updated_at";
+const publicCompanySelect = "id,name,slug,status,paid_until,public_contact_phone";
 const publicCategorySelect = "id,name,code,sort_order";
 const publicCatalogProductSelect =
   "id,category_id,product_code,name,specification,unit_price,description,image_url";
@@ -75,7 +75,8 @@ function samplePublicCompany(slug: string): PublicCompany | null {
     name: sampleCompany.name,
     slug: sampleCompany.slug,
     status: sampleCompany.status,
-    paid_until: sampleCompany.paid_until
+    paid_until: sampleCompany.paid_until,
+    public_contact_phone: sampleCompany.public_contact_phone
   };
 }
 

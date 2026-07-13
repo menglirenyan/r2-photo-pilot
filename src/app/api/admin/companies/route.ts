@@ -6,7 +6,7 @@ import { invalidatePublicCatalog } from "@/lib/public-cache";
 import type { CompanyStatus } from "@/types";
 
 const companySafeSelect =
-  "id,company_number,name,slug,login_username,status,paid_until,contact_name,contact_note,created_at,updated_at";
+  "id,company_number,name,slug,login_username,status,paid_until,contact_name,contact_note,public_contact_phone,created_at,updated_at";
 
 export async function POST(request: Request) {
   const { response, supabase } = await requirePlatformAdmin();

@@ -14,6 +14,7 @@ export const sampleCompany: Company = {
   paid_until: paidUntil,
   contact_name: "站点运营",
   contact_note: "演示企业，后台可替换为真实企业。",
+  public_contact_phone: "138 0000 0000",
   created_at: now,
   updated_at: now
 };

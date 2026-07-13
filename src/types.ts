@@ -11,6 +11,7 @@ export type Company = {
   paid_until: string | null;
   contact_name: string;
   contact_note: string;
+  public_contact_phone: string;
   created_at: string;
   updated_at: string;
 };
@@ -47,7 +48,10 @@ export type Product = {
 
 export type CatalogCategory = Pick<Category, "id" | "name" | "code" | "sort_order">;
 
-export type PublicCompany = Pick<Company, "id" | "name" | "slug" | "status" | "paid_until">;
+export type PublicCompany = Pick<
+  Company,
+  "id" | "name" | "slug" | "status" | "paid_until" | "public_contact_phone"
+>;
 
 export type ShipmentSheet = {
   id: string;

@@ -7,6 +7,7 @@ import {
   FileText,
   ImagePlus,
   Pencil,
+  Phone,
   Save,
   Trash2,
   X
@@ -67,6 +68,9 @@ export function CompanyProductListWorkspace({
   const [quotationOpen, setQuotationOpen] = useState(false);
   const [quotationSeed, setQuotationSeed] = useState<{ nonce: number; products: Product[] } | null>(null);
   const [hasQuotationDraft, setHasQuotationDraft] = useState(false);
+  const [phonePanelOpen, setPhonePanelOpen] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState(company.public_contact_phone);
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [message, setMessage] = useState("");
 
   const selectedProducts = useMemo(
@@ -229,6 +233,40 @@ export function CompanyProductListWorkspace({
     setMessage("请先选择需要报价的产品。");
   }
 
+  async function savePublicContact(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isSavingPhone) return;
+
+    setIsSavingPhone(true);
+    setMessage("");
+    const publicContactPhone = phoneDraft.trim();
+
+    try {
+      const response = await fetch("/api/admin/company-contact", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_id: company.id,
+          public_contact_phone: publicContactPhone
+        })
+      });
+
+      if (!response.ok) throw new Error(await readError(response));
+
+      const payload = (await response.json()) as { company: Pick<Company, "public_contact_phone"> };
+      setPhoneDraft(payload.company.public_contact_phone);
+      setMessage(
+        publicContactPhone
+          ? "公开联系方式已保存。"
+          : "公开联系方式已清除，产品册将不再显示联系方式。"
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "公开联系方式保存失败。");
+    } finally {
+      setIsSavingPhone(false);
+    }
+  }
+
   return (
     <main className="admin-shell">
       <CompanyAdminNavigation active="products" company={company} isPlatformAdmin={isPlatformAdmin} />
@@ -240,6 +278,17 @@ export function CompanyProductListWorkspace({
             <p>{company.name}</p>
           </div>
           <div className="admin-top-actions">
+            <button
+              aria-controls="public-contact-panel"
+              aria-expanded={phonePanelOpen}
+              className="ghost-action"
+              data-testid="public-contact-toggle"
+              onClick={() => setPhonePanelOpen((current) => !current)}
+              type="button"
+            >
+              <Phone size={16} />
+              公开联系方式
+            </button>
             <button className="primary-action" data-testid="quotation-top-open" onClick={openQuotation} type="button">
               <FileText size={16} />
               生成报价单
@@ -257,6 +306,55 @@ export function CompanyProductListWorkspace({
 
         {!configured ? <div className="admin-warning">当前未配置 Supabase，页面展示演示数据；写入操作会被后端拒绝。</div> : null}
         {message ? <div className="admin-message" role="status">{message}</div> : null}
+
+        {phonePanelOpen ? (
+          <section className="admin-panel public-contact-panel" data-testid="public-contact-panel" id="public-contact-panel">
+            <div className="panel-title panel-title-between">
+              <span>
+                <Phone size={18} />
+                <h2>产品册公开电话</h2>
+              </span>
+              <button
+                className="ghost-action"
+                disabled={isSavingPhone}
+                onClick={() => setPhonePanelOpen(false)}
+                type="button"
+              >
+                <X size={15} />
+                关闭
+              </button>
+            </div>
+            <form aria-busy={isSavingPhone} className="inline-form" onSubmit={savePublicContact}>
+              <label htmlFor="public-contact-phone">
+                电话号码
+                <input
+                  autoComplete="tel"
+                  data-testid="public-contact-phone"
+                  disabled={isSavingPhone}
+                  id="public-contact-phone"
+                  inputMode="tel"
+                  maxLength={50}
+                  onChange={(event) => setPhoneDraft(event.target.value)}
+                  placeholder="例如 138 0000 0000"
+                  type="tel"
+                  value={phoneDraft}
+                />
+              </label>
+              <button
+                className="primary-action"
+                data-testid="public-contact-save"
+                disabled={!configured || isSavingPhone}
+                type="submit"
+              >
+                <Save size={16} />
+                {isSavingPhone ? "正在保存..." : "保存"}
+              </button>
+            </form>
+            <p>
+              此电话仅用于游客产品册，与平台后台的内部联系人、内部备注无关；留空保存后，游客端不显示“联系方式”按钮。
+            </p>
+          </section>
+        ) : null}
 
         <section className="admin-catalog-workspace">
           <div className="catalog-admin-bar">

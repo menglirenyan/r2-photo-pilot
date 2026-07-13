@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Fragment, ReactNode, useEffect, useId, useMemo, useState } from "react";
+import { Phone, Search, SlidersHorizontal } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { formatPrice } from "@/lib/format";
 import type { CatalogCategory, CatalogProduct, Company, ProductStatus } from "@/types";
@@ -14,6 +14,7 @@ type ProductCatalogViewProps = {
   asMain?: boolean;
   categories: CatalogCategory[];
   company: Pick<Company, "name" | "slug">;
+  contactPhone?: string;
   countNote?: string;
   emptyText?: string;
   products: CatalogListProduct[];
@@ -45,6 +46,7 @@ export function ProductCatalogView({
   asMain = false,
   categories,
   company,
+  contactPhone,
   countNote,
   emptyText = "没有匹配的产品。",
   products,
@@ -53,6 +55,12 @@ export function ProductCatalogView({
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const contactDetailsId = useId();
+  const normalizedContactPhone = contactPhone?.trim() ?? "";
+  const dialableContactPhone = normalizedContactPhone
+    .replace(/转/g, ",")
+    .replace(/[^0-9+*#,;]/g, "");
   const Wrapper: "main" | "section" = asMain ? "main" : "section";
 
   const availableCategories = useMemo(() => {
@@ -90,13 +98,45 @@ export function ProductCatalogView({
   return (
     <Wrapper className={asMain ? "catalog-page" : "catalog-page catalog-embedded"}>
       <header className="catalog-header">
-        <div className="catalog-company">
-          <span className="catalog-mark">{company.name.slice(0, 1)}</span>
-          <div>
-            <h1>{company.name}</h1>
-            <p>产品册</p>
+        <div className="catalog-header-row">
+          <div className="catalog-company">
+            <span className="catalog-mark">{company.name.slice(0, 1)}</span>
+            <div>
+              <h1>{company.name}</h1>
+              <p>产品册</p>
+            </div>
           </div>
+          {normalizedContactPhone ? (
+            <button
+              aria-controls={contactDetailsId}
+              aria-expanded={contactOpen}
+              className="catalog-contact-button"
+              data-testid="catalog-contact-toggle"
+              onClick={() => setContactOpen((current) => !current)}
+              type="button"
+            >
+              <Phone aria-hidden="true" size={16} />
+              <span>联系方式</span>
+            </button>
+          ) : null}
         </div>
+        {normalizedContactPhone ? (
+          <div
+            className="catalog-contact-details"
+            data-testid="catalog-contact-phone"
+            hidden={!contactOpen}
+            id={contactDetailsId}
+          >
+            <span>联系电话</span>
+            <a
+              aria-label={`拨打 ${normalizedContactPhone}`}
+              className="catalog-contact-link"
+              href={`tel:${dialableContactPhone}`}
+            >
+              {normalizedContactPhone}
+            </a>
+          </div>
+        ) : null}
       </header>
 
       <section className="catalog-tools">

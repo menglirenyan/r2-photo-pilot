@@ -23,8 +23,11 @@ create table if not exists public.companies (
   paid_until date,
   contact_name text not null default '' check (char_length(contact_name) <= 80),
   contact_note text not null default '' check (char_length(contact_note) <= 500),
+  public_contact_phone text not null default '',
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint companies_public_contact_phone_length_check
+    check (char_length(public_contact_phone) <= 50)
 );
 
 alter table public.companies
@@ -35,6 +38,29 @@ alter table public.companies
 
 alter table public.companies
   add column if not exists password_hash text not null default '';
+
+alter table public.companies
+  add column if not exists public_contact_phone text not null default '';
+
+do $$ begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'companies_public_contact_phone_length_check'
+      and conrelid = 'public.companies'::regclass
+  ) then
+    alter table public.companies
+      add constraint companies_public_contact_phone_length_check
+      check (char_length(public_contact_phone) <= 50);
+  end if;
+end $$;
+
+comment on column public.companies.contact_name is
+  '平台运营使用的内部联系人姓名，不公开展示。';
+comment on column public.companies.contact_note is
+  '平台运营使用的内部企业备注，不公开展示。';
+comment on column public.companies.public_contact_phone is
+  '企业自助维护并在公开产品册展示的联系电话；空字符串表示不公开。';
 
 create sequence if not exists public.company_number_seq
   as integer

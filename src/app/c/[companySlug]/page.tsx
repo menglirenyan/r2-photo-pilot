@@ -36,7 +36,11 @@ export default async function CompanyCatalogPage({ params }: PageProps) {
   return (
     <PublicCatalog
       categories={catalog.categories}
-      company={{ name: catalog.company.name, slug: catalog.company.slug }}
+      company={{
+        name: catalog.company.name,
+        slug: catalog.company.slug,
+        public_contact_phone: catalog.company.public_contact_phone
+      }}
       products={catalog.products}
     />
   );
