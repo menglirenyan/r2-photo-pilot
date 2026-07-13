@@ -1,19 +1,25 @@
-import { BookOpen } from "lucide-react";
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { LoginForm } from "@/components/LoginForm";
+import { getAuthSession } from "@/lib/auth";
 
-export default function Home() {
+export const metadata: Metadata = {
+  title: "后台登录 | 货物产品册",
+  description: "货物产品册后台统一登录入口。",
+  robots: { index: false, follow: false }
+};
+
+export default async function Home() {
+  const session = await getAuthSession();
+
+  if (session?.role === "admin") redirect("/admin");
+  if (session?.role === "company") redirect(`/${session.companySlug}`);
+
   return (
-    <main className="login-page">
-      <section className="login-panel">
-        <div className="login-icon">
-          <BookOpen size={24} />
-        </div>
-        <span className="login-eyebrow">货物产品册</span>
-        <h1>企业产品目录</h1>
-        <p>请使用企业提供的专属链接访问产品册，或联系企业获取最新访问地址。</p>
-        <a className="primary-action" href="/admin/login">
-          平台管理员登录
-        </a>
-      </section>
-    </main>
+    <LoginForm
+      defaultUsername=""
+      description="输入账号和密码，系统会自动进入对应的管理后台。"
+      mode="auto"
+    />
   );
 }

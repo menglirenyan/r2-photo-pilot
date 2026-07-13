@@ -586,6 +586,7 @@ textarea:focus {
 .login-page {
   display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
   place-items: center;
   padding: 20px;
   background:
@@ -673,7 +674,12 @@ textarea:focus {
 
 .login-panel button {
   width: 100%;
+  min-height: 44px;
   margin-top: 16px;
+}
+
+.login-panel input {
+  min-height: 44px;
 }
 
 .form-error,
@@ -1579,7 +1585,8 @@ body {
 
 .login-page {
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .login-page::before {
@@ -2147,6 +2154,10 @@ body {
 }
 
 @media (max-width: 720px) {
+  .login-panel {
+    padding: 24px;
+  }
+
   .login-page::before {
     inset: 0 0 auto;
     width: 100%;

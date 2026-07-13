@@ -11,7 +11,7 @@
 - 浏览者通过带随机访问标识的企业公开链接访问产品册，例如 `/c/site-<opaque-token>`；顺序企业编号不得出现在外部 URL。
 - 企业只有在后台被手动开通、且未过期时，公开页才展示产品。
 - 企业用户不自助注册，不在线付款，不下单。
-- 企业通过 `/:companySlug` 登录管理自己的产品册；运营者通过 `/admin` 管理企业用户、登录账号、开通状态和可用时间，并可进入任一企业工作台管理产品图片。
+- 企业可从 `/` 输入账号密码，由服务端识别后进入自己的 `/:companySlug` 产品后台；原企业专属管理链接继续兼容。运营者通过同一入口或 `/admin/login` 登录，并在 `/admin` 管理企业用户、登录账号、开通状态和可用时间，也可进入任一企业工作台管理产品图片。
 - 第一版采用邀请制与私下付款，后台人工开通，不在网页展示收款码。
 
 明确不做：
@@ -46,7 +46,7 @@
 
 公开路由：
 
-- `/`：中性入口，不重定向或展示任何企业编号、slug。
+- `/`：统一后台登录入口；未登录时直接显示空账号和密码表单，不展示任何企业编号、名称或 slug。验证成功后仅使用服务端返回的站内目标进入 `/admin` 或对应 `/:companySlug`；已有有效 session 时直接进入相应后台。
 - `/[companySlug]`：企业管理入口；`companySlug` 为不可预测的非顺序访问标识。未登录时显示不含 slug 的登录表单，已登录时进入该企业产品列表后台。
 - `/[companySlug]/upload`：企业产品上传入口；未登录时显示登录表单，已登录时进入独立上传界面。
 - `/c/[companySlug]`：企业公开产品册。
@@ -60,7 +60,7 @@
 
 API 路由：
 
-- `/api/admin/login`：校验平台管理员或企业账号密码，写入 HTTP-only session cookie。
+- `/api/admin/login`：校验平台管理员或企业账号密码，写入 HTTP-only session cookie；统一入口模式下由服务端按账号解析角色和企业，并返回可信的站内后台地址。
 - `/api/admin/logout`：清理 session。
 - `/api/admin/companies`：仅平台管理员可用，创建/更新/删除用户企业、登录账号、开通状态、可用到期日。
 - `/api/admin/categories`：创建企业分类。
@@ -126,7 +126,7 @@ RLS 策略：
 
 - `layout.tsx`：全局 HTML 和 metadata。
 - `globals.css`：全局设计系统、公开页、后台页、打印样式。
-- `page.tsx`：不暴露企业标识的中性根入口。
+- `page.tsx`：不暴露企业标识的统一登录入口，并把已有有效 session 重定向到对应后台。
 - `[companySlug]/page.tsx`：企业产品列表管理入口。
 - `[companySlug]/upload/page.tsx`：企业产品上传入口。
 - `c/[companySlug]/page.tsx`：公开产品册服务端入口。
@@ -140,7 +140,7 @@ RLS 策略：
 
 - `PublicCatalog.tsx`：公开产品册客户端入口，复用产品册搜索、分类筛选、产品卡渲染。
 - `SafeImage.tsx`：产品图片兜底，图片失败时显示产品名占位。
-- `LoginForm.tsx`：平台和企业后台登录表单。
+- `LoginForm.tsx`：统一入口、平台专用入口和企业专属入口共用的后台登录表单。
 - `AdminDashboard.tsx`：平台后台工作台，渲染用户管理及进入各企业产品/图片工作台的入口。
 - `CompanyProductListWorkspace.tsx`：企业产品列表工作台，复用公开产品册卡片布局，并承载批量选择、资料与图片修改、删除和报价单入口。
 - `CompanyAdminNavigation.tsx`：企业后台共用导航；桌面端固定侧栏，移动端顶部栏与抽屉。
@@ -184,10 +184,11 @@ RLS 策略：
 
 后台登录：
 
-1. 企业访问 `/[companySlug]`，或运营方访问 `/admin/login`，输入账号和密码。
-2. `/api/admin/login` 对平台管理员校验 `ADMIN_USERNAME` 和 `ADMIN_PASSWORD`；对企业登录校验 `companies.login_username` 和 `companies.password_hash`。
-3. 成功后写入带角色的 HTTP-only session cookie。
+1. 用户优先访问 `/` 输入账号和密码；平台运营方也可继续访问 `/admin/login`，企业原有 `/:companySlug` 专属登录入口继续兼容。
+2. `/api/admin/login` 的统一入口模式先校验完整平台账号；否则按唯一的规范化 `companies.login_username` 定位企业，并校验 `password_hash`。平台专用和企业专属模式保持各自原有范围。
+3. 成功后写入带角色的 HTTP-only session cookie；统一入口只接受服务端生成的 `/admin` 或 `/${company.slug}` 站内目标，客户端不能提交返回地址或决定企业 slug。
 4. `/admin` 只允许平台管理员进入用户管理；`/[companySlug]` 和 `/[companySlug]/upload` 允许平台管理员或该企业 session 进入企业后台。
+5. 账号不存在、密码错误或企业不匹配统一返回相同错误，不通过登录响应暴露企业是否存在。
 
 图片上传：
 
@@ -221,6 +222,7 @@ RLS 策略：
 
 - 以运营效率为主，不做营销式页面。
 - PC 桌面优先，移动端可用但不是主要操作场景。
+- 根路径在桌面和移动端首屏直接展示账号、密码和登录按钮；统一入口的账号初值为空，不要求用户先获得企业管理 slug。
 - `/admin` 只展示用户管理，不内嵌产品、图片或报价单；平台管理员通过企业行入口进入企业工作台后，可查看和替换该企业产品图片。
 - 企业后台 `/:companySlug` 以产品列表为主，不展示平台用户管理。
 - 企业上传页 `/:companySlug/upload` 单独展示分类创建和产品上传表单，桌面端和手机端都应可直接通过按钮或网址进入。
@@ -300,7 +302,7 @@ RLS 策略：
 2. 运行 `npm run build`。
 3. 验证 `/c/demo-catalog`，并确认公开 URL、标题和页面不含顺序企业编号。
 4. 验证 `/c/demo-catalog/p/TC-001` 或任意产品详情，以及停用/过期企业目录与详情统一 404。
-5. 验证 `/demo-catalog`、`/demo-catalog/upload`、`/admin/login` 和 `/admin`。
+5. 验证 `/` 的统一登录：平台账号进入 `/admin`，至少两个正式企业账号分别进入各自不透明 slug 后台，错误凭据显示统一错误；同时回归 `/demo-catalog`、`/demo-catalog/upload`、`/admin/login` 和 `/admin`。
 6. 在 `/demo-catalog` 批量选择产品并生成报价单，验证编辑、图片替换、待议单价、合计、草稿恢复和 PNG/XLSX 下载。
 7. 搜索旧原型残留：`R2 Photo`、`photo_uploads`、乱码文本。
 
@@ -345,6 +347,7 @@ RLS 策略：
 - 搜索“陶瓷”返回 2 个产品。
 - `/c/demo-catalog/p/TC-001` 产品详情正常展示。
 - `/admin/login` 使用本地默认密码 `admin123` 可进入平台用户管理，不显示产品和报价单。
+- `/` 直接显示空账号、密码和登录按钮；本地无 Supabase 时，`admin/admin123` 进入 `/admin`，`demo/demo123` 进入 `/demo-catalog`，错误凭据不泄露账号或企业状态。
 - `/demo-catalog` 在本地无 Supabase 演示环境下使用 `demo/demo123` 可进入企业产品列表后台。
 - `/demo-catalog/upload` 在同一登录态下可进入独立产品上传页。
 - 平台管理员可从 `/admin` 进入任一企业产品工作台，查看当前图并选择新图替换；跨企业企业账号仍被 API 拒绝。
