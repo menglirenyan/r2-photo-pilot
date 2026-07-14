@@ -8,3 +8,6 @@ r2-smoke-*.jpg
 
 .vercel
 .env*
+pnpm-lock.yaml
+pnpm-workspace.yaml
+*.inspect.ndjson

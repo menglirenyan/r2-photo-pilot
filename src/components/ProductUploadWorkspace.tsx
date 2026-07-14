@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { ArrowLeft, Eye, ImagePlus, PackagePlus, Save } from "lucide-react";
+import { ArrowLeft, CalendarClock, Eye, ImagePlus, PackagePlus, Save } from "lucide-react";
 import { CompanyAdminNavigation } from "@/components/CompanyAdminNavigation";
 import { compressProductImage, uploadProductImageToR2 } from "@/lib/client-image-upload";
+import { getCompanyExpiryReminder } from "@/lib/format";
 import type { Category, Company, Product } from "@/types";
 
 type ProductForm = {
@@ -47,6 +48,7 @@ export function ProductUploadWorkspace({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const expiryReminder = getCompanyExpiryReminder(company.paid_until);
 
   function findCategory(value: string) {
     const normalized = value.trim().toLowerCase();
@@ -157,6 +159,11 @@ export function ProductUploadWorkspace({
           <div>
             <h1>上传产品</h1>
             <p>{company.name} 的产品图片、分类、规格和价格录入。</p>
+            <div className={`company-expiry-reminder ${expiryReminder.tone}`} role="status">
+              <CalendarClock aria-hidden="true" size={14} />
+              <strong>{expiryReminder.label}</strong>
+              <span>{expiryReminder.detail}</span>
+            </div>
           </div>
           <div className="admin-top-actions">
             <a className="ghost-action" href={`/${company.slug}`}>
