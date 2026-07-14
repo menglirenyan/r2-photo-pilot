@@ -1968,6 +1968,10 @@ body {
   grid-column: span 3;
 }
 
+.quotation-item-note {
+  grid-column: span 6;
+}
+
 .quotation-line-amount {
   grid-column: span 3;
   display: grid;
@@ -2002,10 +2006,6 @@ body {
   border-radius: 8px;
   font-size: 12px;
   font-weight: 700;
-}
-
-.quotation-note {
-  margin-top: 14px;
 }
 
 .quotation-preview {
@@ -2322,7 +2322,8 @@ body {
 
   .quotation-line-label,
   .quotation-name-field,
-  .quotation-name-field + label {
+  .quotation-name-field + label,
+  .quotation-item-note {
     grid-column: 1 / -1;
   }
 

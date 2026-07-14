@@ -132,9 +132,9 @@ const cell = (width: number, children: React.ReactNode, extra: React.CSSProperti
 export async function buildQuotationPng({ company, quotation, products, images }: QuotationExportContext) {
   const width = 1200;
   const rowHeight = 210;
-  const height = 250 + quotation.items.length * rowHeight + 125;
+  const height = 250 + quotation.items.length * rowHeight + 105;
   const font = await quoteFont();
-  const columns = [180, 300, 180, 110, 150, 200];
+  const columns = [150, 240, 150, 90, 120, 160, 210];
 
   const svg = await satori(
     <div style={{ width, height, display: "flex", flexDirection: "column", padding: "38px 40px", color: "#15221d", background: "#f5f6f3", fontFamily: "Noto Sans SC" }}>
@@ -157,7 +157,8 @@ export async function buildQuotationPng({ company, quotation, products, images }
         {cell(columns[2], "尺寸 / 规格")}
         {cell(columns[3], "数量")}
         {cell(columns[4], "单价")}
-        {cell(columns[5], "参考合计", { borderRight: "0" })}
+        {cell(columns[5], "参考合计")}
+        {cell(columns[6], "备注", { borderRight: "0" })}
       </div>
 
       {quotation.items.map((item, index) => (
@@ -167,15 +168,12 @@ export async function buildQuotationPng({ company, quotation, products, images }
           {cell(columns[2], item.specification || "-")}
           {cell(columns[3], String(item.quantity))}
           {cell(columns[4], quotationMoney(item.unit_price))}
-          {cell(columns[5], <strong style={{ fontSize: 20, color: item.line_price === null ? "#6c7871" : "#0f766e" }}>{quotationMoney(item.line_price)}</strong>, { borderRight: "0" })}
+          {cell(columns[5], <strong style={{ fontSize: 20, color: item.line_price === null ? "#6c7871" : "#0f766e" }}>{quotationMoney(item.line_price)}</strong>)}
+          {cell(columns[6], item.note || "-", { borderRight: "0", fontSize: 15 })}
         </div>
       ))}
 
-      <div style={{ minHeight: 98, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 26px", background: "#ffffff", border: "1px solid #d7ded9", borderTop: "0" }}>
-        <div style={{ maxWidth: 720, display: "flex", flexDirection: "column", color: "#59675f", fontSize: 14 }}>
-          <span>备注：{quotation.note || "无"}</span>
-          <span style={{ marginTop: 7 }}>本报价单由当前页面临时生成，系统内不保存。</span>
-        </div>
+      <div style={{ minHeight: 78, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "18px 26px", background: "#ffffff", border: "1px solid #d7ded9", borderTop: "0" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
           <span style={{ color: "#637168", fontSize: 17 }}>报价合计</span>
           <strong style={{ color: "#0f766e", fontSize: 32 }}>{quotationMoney(quotation.total_price)}</strong>
@@ -206,10 +204,11 @@ export async function buildQuotationXlsx({ company, quotation, products, images 
     { key: "specification", width: 28 },
     { key: "quantity", width: 12 },
     { key: "unit_price", width: 16 },
-    { key: "line_price", width: 18 }
+    { key: "line_price", width: 18 },
+    { key: "note", width: 28 }
   ];
 
-  sheet.mergeCells("A1:F1");
+  sheet.mergeCells("A1:G1");
   sheet.getCell("A1").value = quotation.title;
   sheet.getCell("A1").font = { name: "Microsoft YaHei", bold: true, size: 22, color: { argb: "FFFFFFFF" } };
   sheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
@@ -218,12 +217,12 @@ export async function buildQuotationXlsx({ company, quotation, products, images 
 
   sheet.mergeCells("A2:C2");
   sheet.getCell("A2").value = `企业：${company.name}`;
-  sheet.mergeCells("D2:F2");
+  sheet.mergeCells("D2:G2");
   sheet.getCell("D2").value = `客户：${quotation.customer_name || "未填写"}　日期：${new Date().toLocaleDateString("zh-CN")}`;
   sheet.getCell("D2").alignment = { horizontal: "right" };
 
   const header = sheet.getRow(4);
-  header.values = ["产品名称", "产品图片", "尺寸 / 规格", "数量", "单价", "参考合计"];
+  header.values = ["产品名称", "产品图片", "尺寸 / 规格", "数量", "单价", "参考合计", "备注"];
   header.height = 24;
   header.eachCell((cell) => {
     cell.font = { name: "Microsoft YaHei", bold: true, color: { argb: "FF173B31" } };
@@ -240,7 +239,8 @@ export async function buildQuotationXlsx({ company, quotation, products, images 
       item.specification,
       item.quantity,
       item.unit_price,
-      item.line_price
+      item.line_price,
+      item.note
     ];
     row.height = 86;
     if (images[index].png) {
@@ -255,20 +255,14 @@ export async function buildQuotationXlsx({ company, quotation, products, images 
   });
 
   const totalRowNumber = quotation.items.length + 5;
-  sheet.mergeCells(`A${totalRowNumber}:E${totalRowNumber}`);
+  sheet.mergeCells(`A${totalRowNumber}:F${totalRowNumber}`);
   sheet.getCell(`A${totalRowNumber}`).value = "报价合计";
   sheet.getCell(`A${totalRowNumber}`).alignment = { horizontal: "right", vertical: "middle" };
-  sheet.getCell(`F${totalRowNumber}`).value = quotation.total_price;
-  sheet.getCell(`F${totalRowNumber}`).numFmt = '¥0.00;[Red]-¥0.00';
+  sheet.getCell(`G${totalRowNumber}`).value = quotation.total_price;
+  sheet.getCell(`G${totalRowNumber}`).numFmt = '¥0.00;[Red]-¥0.00';
   sheet.getRow(totalRowNumber).font = { name: "Microsoft YaHei", bold: true, size: 13, color: { argb: "FF0F766E" } };
 
-  const noteRow = totalRowNumber + 1;
-  sheet.mergeCells(`A${noteRow}:F${noteRow}`);
-  sheet.getCell(`A${noteRow}`).value = `备注：${quotation.note || "无"}\n本报价单由当前页面临时生成，系统内不保存。`;
-  sheet.getCell(`A${noteRow}`).alignment = { vertical: "middle", wrapText: true };
-  sheet.getRow(noteRow).height = 38;
-
-  for (let row = 2; row <= noteRow; row += 1) {
+  for (let row = 2; row <= totalRowNumber; row += 1) {
     sheet.getRow(row).eachCell({ includeEmpty: true }, (cell) => {
       cell.border = {
         top: { style: "thin", color: { argb: "FFD7DED9" } },

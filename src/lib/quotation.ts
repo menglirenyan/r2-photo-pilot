@@ -4,6 +4,7 @@ export type NormalizedQuotationItem = {
   product_id: string;
   name: string;
   specification: string;
+  note: string;
   quantity: number;
   unit_price: number | null;
   line_price: number | null;
@@ -13,7 +14,6 @@ export type NormalizedQuotation = {
   company_slug: string;
   title: string;
   customer_name: string;
-  note: string;
   items: NormalizedQuotationItem[];
   total_price: number;
 };
@@ -61,6 +61,7 @@ export function normalizeQuotationRequest(body: QuotationExportRequest | null):
       product_id: productId,
       name,
       specification: text(row.specification, 80),
+      note: text(row.note, 200),
       quantity: roundedQuantity,
       unit_price: roundedPrice,
       line_price: roundedPrice === null ? null : Number((roundedQuantity * roundedPrice).toFixed(2))
@@ -72,7 +73,6 @@ export function normalizeQuotationRequest(body: QuotationExportRequest | null):
       company_slug: companySlug,
       title: text(body.title, 120) || "产品报价单",
       customer_name: text(body.customer_name, 120),
-      note: text(body.note, 500),
       items,
       total_price: Number(items.reduce((sum, item) => sum + (item.line_price ?? 0), 0).toFixed(2))
     },

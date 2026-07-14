@@ -23,8 +23,7 @@ type QuotationComposerProps = {
 
 const initialMeta: QuotationMeta = {
   title: "产品报价单",
-  customer_name: "",
-  note: "本报价单由当前页面临时生成，系统内不保存。"
+  customer_name: ""
 };
 
 function parseNumber(value: string) {
@@ -106,6 +105,7 @@ export function QuotationComposer({
       image_url: product.image_url,
       name: product.name,
       specification: product.specification,
+      note: "",
       quantity: "1",
       unit_price: product.unit_price === null ? "" : String(product.unit_price)
     }));
@@ -203,11 +203,11 @@ export function QuotationComposer({
           company_slug: company.slug,
           title: meta.title,
           customer_name: meta.customer_name,
-          note: meta.note,
-          items: items.map(({ product_id, name, specification, quantity, unit_price }) => ({
+          items: items.map(({ product_id, name, specification, note, quantity, unit_price }) => ({
             product_id,
             name,
             specification,
+            note,
             quantity,
             unit_price
           }))
@@ -298,6 +298,10 @@ export function QuotationComposer({
                           单价
                           <input inputMode="decimal" min="0" placeholder="待议" step="0.01" type="number" value={item.unit_price} onChange={(event) => updateItem(index, { unit_price: event.target.value })} />
                         </label>
+                        <label className="quotation-item-note">
+                          备注
+                          <input maxLength={200} placeholder="可留空" value={item.note ?? ""} onChange={(event) => updateItem(index, { note: event.target.value })} />
+                        </label>
                         <div className="quotation-line-amount">
                           <span>小计</span>
                           <strong>{amount === null ? "待议" : formatPrice(amount)}</strong>
@@ -312,10 +316,6 @@ export function QuotationComposer({
                 })}
               </div>
 
-              <label className="quotation-note">
-                备注
-                <textarea maxLength={500} value={meta.note} onChange={(event) => setMeta({ ...meta, note: event.target.value })} />
-              </label>
             </section>
 
             <aside className="quotation-preview" aria-label="报价单预览">

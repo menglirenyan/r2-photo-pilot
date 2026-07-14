@@ -130,6 +130,7 @@ export type QuotationDraftItem = {
   image_url: string;
   name: string;
   specification: string;
+  note: string;
   quantity: string;
   unit_price: string;
 };
@@ -137,7 +138,6 @@ export type QuotationDraftItem = {
 export type QuotationMeta = {
   title: string;
   customer_name: string;
-  note: string;
 };
 
 export type QuotationCachePayload = {
@@ -152,6 +152,5 @@ export type QuotationExportRequest = {
   company_slug: string;
   title: string;
   customer_name: string;
-  note: string;
-  items: Array<Pick<QuotationDraftItem, "product_id" | "name" | "specification" | "quantity" | "unit_price">>;
+  items: Array<Pick<QuotationDraftItem, "product_id" | "name" | "specification" | "note" | "quantity" | "unit_price">>;
 };
