@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  CalendarClock,
   Check,
   Eye,
   FileText,
@@ -17,6 +18,7 @@ import { ProductCardContent, ProductCatalogView } from "@/components/ProductCata
 import { QuotationComposer } from "@/components/QuotationComposer";
 import { SafeImage } from "@/components/SafeImage";
 import { compressProductImage, uploadProductImageToR2 } from "@/lib/client-image-upload";
+import { getCompanyExpiryReminder } from "@/lib/format";
 import type { Category, Company, Product, ProductStatus, SignUploadResponse } from "@/types";
 
 type CompanyProductListWorkspaceProps = {
@@ -72,6 +74,7 @@ export function CompanyProductListWorkspace({
   const [phoneDraft, setPhoneDraft] = useState(company.public_contact_phone);
   const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [message, setMessage] = useState("");
+  const expiryReminder = getCompanyExpiryReminder(company.paid_until);
 
   const selectedProducts = useMemo(
     () => productList.filter((product) => selectedIds.includes(product.id)),
@@ -276,6 +279,11 @@ export function CompanyProductListWorkspace({
           <div>
             <h1>产品列表</h1>
             <p>{company.name}</p>
+            <div className={`company-expiry-reminder ${expiryReminder.tone}`} role="status">
+              <CalendarClock aria-hidden="true" size={14} />
+              <strong>{expiryReminder.label}</strong>
+              <span>{expiryReminder.detail}</span>
+            </div>
           </div>
           <div className="admin-top-actions">
             <button
