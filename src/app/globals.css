@@ -278,9 +278,20 @@ textarea:focus {
 .category-tabs {
   grid-column: 1 / -1;
   display: none;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: nowrap;
   gap: 7px;
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+}
+
+.category-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .category-tabs.open {
@@ -297,6 +308,7 @@ textarea:focus {
   border-radius: 999px;
   font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
