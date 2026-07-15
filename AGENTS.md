@@ -2,22 +2,22 @@
 
 Before changing this project, read `DEVELOPMENT_FRAMEWORK.md`.
 
-All future changes must preserve these architectural decisions unless the user explicitly approves a framework change:
+Preserve these rules unless the user explicitly approves a framework change:
 
-- Keep the app on Next.js App Router with Supabase Postgres and Cloudflare R2.
-- Keep public catalog routes under `/c/[companySlug]` and product detail routes under `/c/[companySlug]/p/[productCode]`.
-- Keep admin operations under `/admin` and `/api/admin/*`.
-- Protect all write APIs with the admin session guard.
-- Do not add checkout, cart, online payment, or public payment QR codes unless the product scope is explicitly changed.
-- Preserve mobile-first public catalog density: at least 6 products visible on a 390x844 mobile viewport in the default catalog view.
-- Preserve category-scoped product numbering, such as `HW-001`.
-- Keep `/` as the unified account-and-password login entry; only the server may resolve and return the authenticated admin or company workspace destination.
-- Keep the visitor-facing `public_contact_phone` separate from platform-only `contact_name` and `contact_note`; only render the public contact control when the public phone is non-empty.
-- Keep sequential company numbers internal; public and company-admin URLs must use opaque, non-sequential slugs and must not render those slugs as user-facing IDs.
-- Fail closed for unknown, inactive, or expired companies on public catalog and product-detail routes; do not reveal tenant state or fall back to demo data after a configured Supabase read fails.
-- Preserve platform-admin access to each company's product workspace, including viewing and replacing product images through the existing guarded upload flow.
-- Update `supabase/schema.sql`, `src/types.ts`, API handlers, and UI together when changing data shape.
-- Record every development change in `DEVELOPMENT_LOG.md` before committing.
-- Run `npm run build` after code changes.
+- Keep Next.js App Router, Supabase Postgres, Cloudflare R2, and the current server-session security model.
+- Keep public routes at `/c/[companySlug]` and `/c/[companySlug]/p/[productCode]`.
+- Keep platform administration under `/admin` and guarded server APIs.
+- Protect every write with session, role, and tenant-scope checks.
+- Keep `/` as the unified login; only the server resolves the destination.
+- Keep sequential company numbers internal and public/company URLs opaque.
+- Fail closed for unknown, inactive, expired, or unreadable tenants.
+- Keep `public_contact_phone` separate from internal `contact_name` and `contact_note`.
+- Preserve category-scoped product codes such as `HW-001`.
+- Preserve platform-admin access to company product workspaces and guarded image replacement.
+- Do not add cart, checkout, online payment, or public payment QR codes without an explicit scope change.
+- Preserve at least 6 visible products at 390×844 in the default public catalog.
+- Update schema, types, API, UI, cache invalidation, and tests together when data shape changes.
+- Run `npm run build` after code changes and verify the affected user flow.
+- Keep Markdown current-state only: replace obsolete text instead of appending logs, status ledgers, or completed work.
 
-Use `DEVELOPMENT_FRAMEWORK.md` as the source of truth for file ownership, data flow, security boundaries, UI rules, and verification requirements.
+`DEVELOPMENT_FRAMEWORK.md` is the source of truth. Git history is the source for past changes.
