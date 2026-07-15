@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cleanText, databaseError, jsonError, readJsonBody, requireAdmin, requireCompanyAccess } from "@/lib/api";
+import { createCategoryCode } from "@/lib/category-code";
 import { invalidatePublicCatalog, readCompanySlugForInvalidation } from "@/lib/public-cache";
 
 export async function POST(request: Request) {
@@ -30,19 +31,12 @@ export async function POST(request: Request) {
     const { data: existingCategories, error: codeError } = await supabase
       .from("categories")
       .select("code")
-      .eq("company_id", companyId)
-      .like("code", "C%");
+      .eq("company_id", companyId);
 
     if (codeError) return jsonError(codeError.message, 500);
 
     const usedCodes = new Set((existingCategories ?? []).map((category) => category.code));
-    for (let index = 1; index <= 9999; index += 1) {
-      const candidate = `CAT${String(index).padStart(3, "0")}`;
-      if (!usedCodes.has(candidate)) {
-        code = candidate;
-        break;
-      }
-    }
+    code = createCategoryCode(name, usedCodes);
   }
 
   if (!code) return jsonError("类别代码生成失败。");

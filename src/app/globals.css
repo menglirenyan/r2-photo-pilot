@@ -1473,9 +1473,72 @@ textarea:focus {
 }
 
 .product-form .wide,
+.product-image-first,
 .upload-field,
 .product-form .primary-action {
   grid-column: 1 / -1;
+}
+
+.product-image-first {
+  display: grid;
+  gap: 9px;
+  padding-bottom: 4px;
+}
+
+.product-upload-preview {
+  position: relative;
+  display: grid;
+  min-height: 210px;
+  overflow: hidden;
+  background: #f4f7f4;
+  border: 1px dashed #a9c8bf;
+  border-radius: var(--radius);
+}
+
+.product-upload-preview.has-image {
+  aspect-ratio: 16 / 10;
+  min-height: 0;
+  background: #e8eeea;
+  border-style: solid;
+  border-color: #bfd0ca;
+}
+
+.product-upload-preview img {
+  object-fit: contain;
+}
+
+.product-upload-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  padding: 28px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.product-upload-placeholder svg {
+  color: var(--accent);
+}
+
+.product-upload-placeholder strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.product-upload-placeholder span,
+.product-image-file-name,
+.product-form label > small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.product-image-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .upload-field {
@@ -1489,6 +1552,10 @@ textarea:focus {
   background: var(--accent-soft);
   border: 1px dashed #95cfc5;
   border-radius: var(--radius);
+}
+
+.product-image-picker {
+  min-height: 48px;
 }
 
 .upload-field input {

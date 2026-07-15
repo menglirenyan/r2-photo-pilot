@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, ReactNode, useEffect, useId, useMemo, useState } from "react";
-import { Phone, Search, SlidersHorizontal } from "lucide-react";
+import { Phone, Search } from "lucide-react";
 import { SafeImage } from "@/components/SafeImage";
 import { formatPrice } from "@/lib/format";
 import type { CatalogCategory, CatalogProduct, Company, ProductStatus } from "@/types";
@@ -54,7 +54,6 @@ export function ProductCatalogView({
 }: ProductCatalogViewProps) {
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("all");
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const contactDetailsId = useId();
   const normalizedContactPhone = contactPhone?.trim() ?? "";
@@ -144,20 +143,9 @@ export function ProductCatalogView({
           <Search size={16} />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、规格、编号" />
         </label>
-        <button
-          aria-controls="catalog-categories"
-          aria-expanded={filtersOpen}
-          aria-label={filtersOpen ? "收起产品分类" : "筛选产品分类"}
-          className={filtersOpen ? "catalog-filter active" : "catalog-filter"}
-          data-testid="catalog-filter-toggle"
-          onClick={() => setFiltersOpen((current) => !current)}
-          type="button"
-        >
-          <SlidersHorizontal size={17} />
-          <span>分类</span>
-        </button>
         <nav
-          className={filtersOpen ? "category-tabs open" : "category-tabs"}
+          className="category-tabs open"
+          data-testid="catalog-categories"
           id="catalog-categories"
           aria-label="产品分类"
         >
@@ -210,7 +198,6 @@ export function ProductCatalogView({
             onClick={() => {
               setQuery("");
               setCategoryId("all");
-              setFiltersOpen(false);
             }}
           >
             清除筛选

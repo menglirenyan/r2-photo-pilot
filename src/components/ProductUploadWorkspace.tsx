@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import Image from "next/image";
+import { FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, CalendarClock, Eye, ImagePlus, PackagePlus, Save } from "lucide-react";
 import { CompanyAdminNavigation } from "@/components/CompanyAdminNavigation";
 import { compressProductImage, uploadProductImageToR2 } from "@/lib/client-image-upload";
@@ -46,9 +47,21 @@ export function ProductUploadWorkspace({
   const [categoryCode, setCategoryCode] = useState("");
   const [productForm, setProductForm] = useState<ProductForm>(initialProductForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const expiryReminder = getCompanyExpiryReminder(company.paid_until);
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setImagePreviewUrl("");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(selectedFile);
+    setImagePreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selectedFile]);
 
   function findCategory(value: string) {
     const normalized = value.trim().toLowerCase();
@@ -68,8 +81,8 @@ export function ProductUploadWorkspace({
     const name = categoryInput.trim();
     if (!name) throw new Error("请选择或输入分类。");
     const code = categoryCode.trim().toUpperCase();
-    if (!/^[A-Z0-9]{1,12}$/.test(code)) {
-      throw new Error("新分类需填写 1-12 位英文或数字代码，例如 HW。");
+    if (code && !/^[A-Z0-9]{1,12}$/.test(code)) {
+      throw new Error("分类代码需为 1-12 位英文或数字，例如 HW。");
     }
 
     const response = await fetch("/api/admin/categories", {
@@ -188,6 +201,35 @@ export function ProductUploadWorkspace({
             </div>
 
             <form aria-busy={isSubmitting} className="product-form" onSubmit={createProduct}>
+              <section className="product-image-first" aria-label="产品图片">
+                <div className={imagePreviewUrl ? "product-upload-preview has-image" : "product-upload-preview"}>
+                  {imagePreviewUrl ? (
+                    <Image
+                      alt="待上传产品图片预览"
+                      fill
+                      sizes="(max-width: 680px) calc(100vw - 64px), 700px"
+                      src={imagePreviewUrl}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="product-upload-placeholder">
+                      <ImagePlus aria-hidden="true" size={28} />
+                      <strong>先选择产品图片</strong>
+                      <span>图片会持续显示在这里，方便对照填写产品信息。</span>
+                    </div>
+                  )}
+                </div>
+                <label className="upload-field product-image-picker">
+                  <ImagePlus size={17} />
+                  <span>{selectedFile ? "重新选择产品图片" : "选择产品图片（自动压缩）"}</span>
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                    type="file"
+                  />
+                </label>
+                {selectedFile ? <span className="product-image-file-name">已选择：{selectedFile.name}</span> : null}
+              </section>
               <label>
                 分类
                 <input
@@ -214,13 +256,13 @@ export function ProductUploadWorkspace({
                 <input
                   autoCapitalize="characters"
                   maxLength={12}
-                  pattern="[A-Za-z0-9]{1,12}"
-                  placeholder="如 HW，产品编号将为 HW-001"
+                  pattern="[A-Za-z0-9]{0,12}"
+                  placeholder="可空，默认使用分类中文全拼"
                   readOnly={Boolean(productForm.category_id)}
-                  required
                   value={categoryCode}
                   onChange={(event) => setCategoryCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
                 />
+                <small>留空时自动生成，例如“圆桌”生成 YUANZHUO。</small>
               </label>
               <label>
                 名称
@@ -252,15 +294,6 @@ export function ProductUploadWorkspace({
                 <textarea
                   value={productForm.description}
                   onChange={(event) => setProductForm({ ...productForm, description: event.target.value })}
-                />
-              </label>
-              <label className="upload-field">
-                <ImagePlus size={17} />
-                <span>{selectedFile ? selectedFile.name : "选择产品图片（自动压缩）"}</span>
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                  type="file"
                 />
               </label>
               <button className="primary-action" disabled={!configured || isSubmitting} type="submit">
