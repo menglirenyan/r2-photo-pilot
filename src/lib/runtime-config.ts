@@ -21,6 +21,7 @@ export function getMissingProductionEnv() {
     "R2_PUBLIC_BASE_URL",
     "ADMIN_USERNAME",
     "ADMIN_PASSWORD",
-    "SESSION_SECRET"
+    "SESSION_SECRET",
+    "CRON_SECRET"
   ].filter((key) => !process.env[key]);
 }

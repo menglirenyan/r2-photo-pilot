@@ -1,4 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["hnd1"]
+  "regions": ["hnd1"],
+  "crons": [
+    {
+      "path": "/api/cron/supabase-keepalive/morning",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/supabase-keepalive/evening",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/supabase-keepalive/night",
+      "schedule": "0 18 * * *"
+    }
+  ]
 }

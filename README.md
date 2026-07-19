@@ -43,8 +43,11 @@ npm run dev
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
 - `SESSION_SECRET`
+- `CRON_SECRET`
 
 可选变量为 `MAX_UPLOAD_BYTES` 和仅限本地临时演示的 `ALLOW_DEMO_FALLBACK`。Secret 不得使用 `NEXT_PUBLIC_*` 前缀。
+
+生产部署使用 Vercel Cron 每天在 02:00、10:00 和 18:00 UTC 分别调用一次受 `CRON_SECRET` 保护的 Supabase 只读保活接口；每次调用只执行一条最小查询。`CRON_SECRET` 应使用至少 32 字符的随机值，且不得提交到 Git。免费 Supabase 项目的保活不构成持续可用保证。
 
 ## 数据库与构建
 

@@ -26,6 +26,7 @@
 3. 为 Production、Preview 和 Development 按需配置环境变量；生产环境不得使用默认账号密码或演示回退。
 4. 推送目标分支触发部署，等待 Production 部署进入 Ready 后再验证。
 5. 绑定正式域名后，同步更新 R2 CORS 和图片域名配置。
+6. 为 Production 配置至少 32 字符的随机 `CRON_SECRET`；`vercel.json` 注册三个任务，每天约在北京时间 10:00、18:00 和次日 02:00 调用 `/api/cron/supabase-keepalive/[slot]`，每次执行一条不修改数据的 Supabase 查询。
 
 ## 4. 必需环境变量
 
@@ -40,6 +41,7 @@ R2_PUBLIC_BASE_URL
 ADMIN_USERNAME
 ADMIN_PASSWORD
 SESSION_SECRET
+CRON_SECRET
 ```
 
 可选：
@@ -63,5 +65,6 @@ ALLOW_DEMO_FALLBACK=
 - 新增和替换图片后数据库 metadata 与 R2 对象一致，公开缓存已失效。
 - 正式域名、Vercel 域名和所需本地域名通过 R2 CORS 预检。
 - Production 未启用 `ALLOW_DEMO_FALLBACK`，所有 Secret 均未暴露为 `NEXT_PUBLIC_*`。
+- 未携带正确 `CRON_SECRET` 的保活请求返回 401；Vercel Cron 已注册三个每日任务，手动执行记录返回 200。
 
 不要在本文件记录真实密钥、账号密码、OTP、资源 ID、测试对象 URL 或某次部署状态。

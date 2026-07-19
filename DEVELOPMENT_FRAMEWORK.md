@@ -162,8 +162,11 @@ API 规则：
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
 - `SESSION_SECRET`
+- `CRON_SECRET`
 
 `MAX_UPLOAD_BYTES` 和 `ALLOW_DEMO_FALLBACK` 为可选项。生产环境不得使用默认后台凭据，不得启用演示回退。Secret 不得使用 `NEXT_PUBLIC_*` 前缀，也不得写入文档、日志或截图。
+
+Vercel Cron 每天在三个错开的 UTC 时段调用 `/api/cron/supabase-keepalive/[slot]`，每次执行一条最小 Supabase 只读查询。该路由必须校验 `CRON_SECRET`，不得返回查询数据或接受业务写入；免费 Supabase 项目的保活不视为可用性保证。
 
 ## 10. 修改与验证规则
 
